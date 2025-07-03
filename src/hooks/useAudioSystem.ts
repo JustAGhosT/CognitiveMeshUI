@@ -1,136 +1,130 @@
+// src/hooks/useAudioSystem.ts
+
 "use client"
 import { useEffect, useRef, useState, useCallback } from "react"
-import type { AudioState } from "@/types/nexus"
+import type { AudioConfig, AudioState } from "@/types/nexus"
 
-export function useAudioSystem(initialVolume: number = 0.7) {
+// Combines pre-loaded audio files and Web Audio API synthesis
+export function useAudioSystem(configOrVolume: AudioConfig | number) {
+  // Determine if config object or simple initialVolume
+  const isConfig = typeof configOrVolume === "object"
+  const config: AudioConfig = isConfig
+    ? (configOrVolume as AudioConfig)
+    : {
+        enabled: true,
+        volume: configOrVolume as number,
+        sounds: { dock: "", undock: "", click: "", snap: "" }
+      }
+
+  // HTMLAudioElement map (for URLs)
   const [audioState, setAudioState] = useState<AudioState>({
-    isEnabled: true,
-    volume: initialVolume,
-    sounds: {
-      dock: null,
-      undock: null,
-      click: null,
-      snap: null,
-    },
+    isEnabled: config.enabled,
+    volume: config.volume,
+    sounds: Object.keys(config.sounds).reduce((acc, key) => {
+      acc[key as keyof typeof config.sounds] = null
+      return acc
+    }, {} as Record<keyof typeof config.sounds, HTMLAudioElement | null>)
   })
 
+  // Web Audio API context & buffers
   const audioContextRef = useRef<AudioContext | null>(null)
   const soundBuffersRef = useRef<Map<string, AudioBuffer>>(new Map())
 
-  // Initialize Web Audio API
+  // Initialize both HTMLAudioElements and synthesized buffers
   useEffect(() => {
-    if (typeof window === "undefined") return
-
-    const initAudio = async () => {
-      try {
-        // Create audio context
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
-
-        // Create sound buffers using Web Audio API
-        const createSound = (frequency: number, duration: number = 0.1) => {
-          const sampleRate = audioContextRef.current!.sampleRate
-          const numSamples = sampleRate * duration
-          const buffer = audioContextRef.current!.createBuffer(1, numSamples, sampleRate)
-          const channelData = buffer.getChannelData(0)
-
-          for (let i = 0; i < numSamples; i++) {
-            // Create a pleasant click-snap sound using multiple frequencies
-            const t = i / sampleRate
-            const envelope = Math.exp(-t * 10) // Decay envelope
-            const wave = Math.sin(2 * Math.PI * frequency * t) * envelope
-            channelData[i] = wave * 0.3 // Reduce volume
-          }
-
-          return buffer
+    // HTMLAudioElements
+    if (isConfig) {
+      const loaded = { ...audioState.sounds }
+      Object.entries(config.sounds).forEach(([key, src]) => {
+        if (src) {
+          const audio = new Audio(src)
+          audio.volume = config.volume
+          loaded[key as keyof typeof config.sounds] = audio
         }
-
-        // Create different sounds
-        soundBuffersRef.current.set("dock", createSound(800, 0.15))
-        soundBuffersRef.current.set("undock", createSound(600, 0.15))
-        soundBuffersRef.current.set("click", createSound(1000, 0.08))
-        soundBuffersRef.current.set("snap", createSound(1200, 0.12))
-
-        console.log("Audio system initialized successfully")
-      } catch (error) {
-        console.warn("Audio initialization failed:", error)
-        setAudioState(prev => ({ ...prev, isEnabled: false }))
-      }
+      })
+      setAudioState((prev) => ({ ...prev, sounds: loaded }))
     }
 
-    initAudio()
-
+    // Web Audio API init
+    if (typeof window !== "undefined") {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const createBuffer = (freq: number, dur: number) => {
+        const ctx = audioContextRef.current!
+        const sr = ctx.sampleRate
+        const buf = ctx.createBuffer(1, sr * dur, sr)
+        const data = buf.getChannelData(0)
+        for (let i = 0; i < data.length; i++) {
+          const t = i / sr
+          const env = Math.exp(-t * 10)
+          data[i] = Math.sin(2 * Math.PI * freq * t) * env * 0.3
+        }
+        return buf
+      }
+      // map default synthesized tones
+      soundBuffersRef.current.set("click", createBuffer(1000, 0.08))
+      soundBuffersRef.current.set("snap", createBuffer(1200, 0.12))
+      soundBuffersRef.current.set("dock", createBuffer(800, 0.15))
+      soundBuffersRef.current.set("undock", createBuffer(600, 0.15))
+    }
     return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close()
+      audioContextRef.current?.close()
+    }
+  }, [])
+
+  // Play function covers both types
+  const playSound = useCallback(
+    (type: keyof AudioState["sounds"]) => {
+      if (!audioState.isEnabled) return
+
+      // first try HTMLAudioElement
+      const elt = audioState.sounds[type]
+      if (elt) {
+        elt.currentTime = 0
+        elt.play().catch(() => {})
+        return
       }
-    }
-  }, [])
 
-  const playSound = useCallback((soundType: keyof AudioState["sounds"]) => {
-    if (!audioState.isEnabled || !audioContextRef.current || audioState.volume === 0) return
+      // fallback to Web Audio API
+      const ctx = audioContextRef.current
+      const buffer = soundBuffersRef.current.get(type)
+      if (ctx && buffer) {
+        const src = ctx.createBufferSource()
+        const gain = ctx.createGain()
+        src.buffer = buffer
+        gain.gain.value = audioState.volume
+        src.connect(gain)
+        gain.connect(ctx.destination)
+        src.start()
+      }
+    },
+    [audioState]
+  )
 
-    try {
-      const buffer = soundBuffersRef.current.get(soundType)
-      if (!buffer) return
-
-      const source = audioContextRef.current.createBufferSource()
-      const gainNode = audioContextRef.current.createGain()
-
-      source.buffer = buffer
-      gainNode.gain.value = audioState.volume
-
-      source.connect(gainNode)
-      gainNode.connect(audioContextRef.current.destination)
-
-      source.start()
-    } catch (error) {
-      console.warn(`Failed to play sound ${soundType}:`, error)
-    }
-  }, [audioState.isEnabled, audioState.volume])
-
-  const setVolume = useCallback((volume: number) => {
-    const clampedVolume = Math.max(0, Math.min(1, volume))
-    setAudioState(prev => ({ ...prev, volume: clampedVolume }))
-  }, [])
+  const setVolume = useCallback((vol: number) => {
+    const v = Math.max(0, Math.min(1, vol))
+    setAudioState((prev) => ({ ...prev, volume: v }))
+    Object.values(audioState.sounds).forEach((a) => a && (a.volume = v))
+  }, [audioState.sounds])
 
   const toggleAudio = useCallback(() => {
-    setAudioState(prev => ({ ...prev, isEnabled: !prev.isEnabled }))
+    setAudioState((prev) => ({ ...prev, isEnabled: !prev.isEnabled }))
   }, [])
 
-  const resumeAudioContext = useCallback(async () => {
-    if (audioContextRef.current && audioContextRef.current.state === "suspended") {
-      try {
-        await audioContextRef.current.resume()
-        console.log("Audio context resumed")
-      } catch (error) {
-        console.warn("Failed to resume audio context:", error)
-      }
-    }
+  const resumeAudio = useCallback(async () => {
+    const ctx = audioContextRef.current
+    if (ctx && ctx.state === "suspended") await ctx.resume()
   }, [])
 
-  // Handle user interaction to resume audio context (required by browsers)
+  // resume on first user interaction
   useEffect(() => {
-    const handleUserInteraction = () => {
-      resumeAudioContext()
-      // Remove listeners after first interaction
-      document.removeEventListener("click", handleUserInteraction)
-      document.removeEventListener("keydown", handleUserInteraction)
-    }
-
-    document.addEventListener("click", handleUserInteraction)
-    document.addEventListener("keydown", handleUserInteraction)
-
+    const resume = () => resumeAudio()
+    document.addEventListener("click", resume)
+    document.addEventListener("keydown", resume)
     return () => {
-      document.removeEventListener("click", handleUserInteraction)
-      document.removeEventListener("keydown", handleUserInteraction)
+      document.removeEventListener("click", resume)
+      document.removeEventListener("keydown", resume)
     }
-  }, [resumeAudioContext])
+  }, [resumeAudio])
 
-  return {
-    audioState,
-    playSound,
-    setVolume,
-    toggleAudio,
-    resumeAudioContext,
-  }
+  return { audioState, playSound, setVolume, toggleAudio, resumeAudio }
 }
