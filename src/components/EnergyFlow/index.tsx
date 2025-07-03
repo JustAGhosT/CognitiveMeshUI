@@ -26,9 +26,12 @@ export default function EnergyFlow({
 
   const getAnimationDuration = () => {
     // Get effect speed from CSS custom property, default to 1
-    const effectSpeed = Number.parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue("--effect-speed") || "1",
-    )
+    let effectSpeed = 1
+    if (typeof window !== "undefined") {
+      effectSpeed = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--effect-speed") || "1",
+      )
+    }
 
     switch (intensity) {
       case "low":

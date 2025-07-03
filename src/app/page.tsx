@@ -28,6 +28,7 @@ import {
   RotateCcw,
   Volume2,
   Gauge,
+  Sparkles,
 } from "lucide-react"
 import EnergyFlow from "@/components/EnergyFlow"
 import EnhancedNexus from "@/components/EnhancedNexus"
@@ -49,6 +50,14 @@ function DashboardContent() {
   // New state for bridge controls
   const [effectSpeed, setEffectSpeed] = useState(1.0) // 0.1 to 3.0
   const [soundVolume, setSoundVolume] = useState(0.7) // 0.0 to 1.0
+  const [particleEffectsEnabled, setParticleEffectsEnabled] = useState(() => {
+    // Initialize from localStorage if available, default to true
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('cognitive-mesh-particle-effects')
+      return saved ? JSON.parse(saved) : true
+    }
+    return true
+  })
 
   // Calculate center position for Command Nexus
   useEffect(() => {
@@ -215,8 +224,19 @@ function DashboardContent() {
     document.documentElement.style.setProperty("--animation-duration-base", `${2 / effectSpeed}s`)
   }, [effectSpeed])
 
+  // Persist particle effects setting to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cognitive-mesh-particle-effects', JSON.stringify(particleEffectsEnabled))
+    }
+  }, [particleEffectsEnabled])
+
   const handlePromptSubmit = (prompt: string) => {
     console.log("AI Prompt submitted:", prompt)
+  }
+
+  const toggleParticleEffects = () => {
+    setParticleEffectsEnabled(!particleEffectsEnabled)
   }
 
   const handleVoiceActivation = () => {
@@ -290,44 +310,48 @@ function DashboardContent() {
       }
     >
       {/* Enhanced Animated Starfield Background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-900/20 via-transparent to-transparent" />
-        {[...Array(100)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${(2 + Math.random() * 3) / effectSpeed}s`,
-            }}
-          />
-        ))}
-        {/* Add some brighter stars */}
-        {[...Array(20)].map((_, i) => (
-          <div
-            key={`bright-${i}`}
-            className="absolute w-2 h-2 bg-cyan-400 rounded-full animate-pulse"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 5}s`,
-              animationDuration: `${(3 + Math.random() * 4) / effectSpeed}s`,
-              opacity: 0.6,
-            }}
-          />
-        ))}
-      </div>
+      {particleEffectsEnabled && (
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-900/20 via-transparent to-transparent" />
+          {[...Array(100)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 3}s`,
+                animationDuration: `${(2 + Math.random() * 3) / effectSpeed}s`,
+              }}
+            />
+          ))}
+          {/* Add some brighter stars */}
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={`bright-${i}`}
+              className="absolute w-2 h-2 bg-cyan-400 rounded-full animate-pulse"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 5}s`,
+                animationDuration: `${(3 + Math.random() * 4) / effectSpeed}s`,
+                opacity: 0.6,
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Enhanced Energy Flow Network */}
-      <div className="absolute inset-0 pointer-events-none">
-        <EnergyFlow direction="horizontal" intensity="medium" color="cyan" className="top-1/4 left-0 w-full h-px" />
-        <EnergyFlow direction="vertical" intensity="low" color="blue" className="left-1/4 top-0 w-px h-full" />
-        <EnergyFlow direction="diagonal" intensity="high" color="purple" className="top-1/2 left-1/2 w-1/2 h-1/2" />
-        <EnergyFlow direction="horizontal" intensity="low" color="green" className="bottom-1/4 left-0 w-full h-px" />
-        <EnergyFlow direction="vertical" intensity="medium" color="purple" className="right-1/3 top-0 w-px h-full" />
-      </div>
+      {particleEffectsEnabled && (
+        <div className="absolute inset-0 pointer-events-none">
+          <EnergyFlow direction="horizontal" intensity="medium" color="cyan" className="top-1/4 left-0 w-full h-px" />
+          <EnergyFlow direction="vertical" intensity="low" color="blue" className="left-1/4 top-0 w-px h-full" />
+          <EnergyFlow direction="diagonal" intensity="high" color="purple" className="top-1/2 left-1/2 w-1/2 h-1/2" />
+          <EnergyFlow direction="horizontal" intensity="low" color="green" className="bottom-1/4 left-0 w-full h-px" />
+          <EnergyFlow direction="vertical" intensity="medium" color="purple" className="right-1/3 top-0 w-px h-full" />
+        </div>
+      )}
 
       {/* Enhanced Central Command Nexus - Only show when expanded */}
       {nexusExpanded && (
@@ -440,6 +464,36 @@ function DashboardContent() {
                         {Math.round(soundVolume * 100)}%
                       </span>
                     </div>
+                  </div>
+
+                  {/* Particle Effects Toggle */}
+                  <div className="flex items-center bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2 space-x-3">
+                    <div className="flex items-center space-x-2">
+                      <Sparkles size={14} className={particleEffectsEnabled ? "text-green-400" : "text-slate-500"} />
+                      <span className="text-xs text-slate-300 font-medium">FX</span>
+                    </div>
+                    <button
+                      onClick={toggleParticleEffects}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900 ${
+                        particleEffectsEnabled ? 'bg-green-500' : 'bg-slate-600'
+                      }`}
+                      role="switch"
+                      aria-checked={particleEffectsEnabled}
+                      aria-label="Toggle particle effects"
+                      title={`Particle effects: ${particleEffectsEnabled ? 'ON' : 'OFF'}`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                          particleEffectsEnabled ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                    <span className={`text-xs font-mono w-8 text-center ${
+                      particleEffectsEnabled ? 'text-green-400' : 'text-slate-500'
+                    }`}>
+                      {particleEffectsEnabled ? 'ON' : 'OFF'}
+                    </span>
                   </div>
                 </div>
 
