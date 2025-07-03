@@ -73,8 +73,10 @@ export default function OrbitalIcons({
     const targetPos = isExpanded ? position.originalPosition : staticPos
     
     return {
-      transform: `translate(${targetPos.x}px, ${targetPos.y}px)`,
-      transition: animating ? "transform 0.5s cubic-bezier(0.4, 0.0, 0.2, 1)" : "none",
+      left: targetPos.x - 28, // Adjust for icon width (56px / 2)
+      top: targetPos.y - 28,  // Adjust for icon height (56px / 2)
+      transform: "translate(0, 0)", // Remove transform, use left/top positioning
+      transition: animating ? "all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1)" : "none",
       zIndex: isExpanded ? 60 : 45,
     }
   }

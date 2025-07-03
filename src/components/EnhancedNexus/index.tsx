@@ -211,10 +211,10 @@ export default function EnhancedNexus({
     setDragState(prev => ({ ...prev, activeDropZone: null }))
   }
 
-  // Calculate center position for orbital icons
+  // Calculate center position for orbital icons (relative to screen center)
   const centerPosition = {
-    x: nexusState.position.x + nexusState.size.width / 2,
-    y: nexusState.position.y + nexusState.size.height / 2,
+    x: typeof window !== 'undefined' ? window.innerWidth / 2 : 800,
+    y: typeof window !== 'undefined' ? window.innerHeight / 2 : 400,
   }
 
   return (
@@ -247,10 +247,7 @@ export default function EnhancedNexus({
       {/* Main Nexus Container */}
       <div 
         ref={nexusRef}
-        className="relative pointer-events-auto"
-        style={{
-          transform: `translate(${nexusState.position.x}px, ${nexusState.position.y}px)`,
-        }}
+        className="fixed top-1/2 left-1/2 pointer-events-auto transform -translate-x-1/2 -translate-y-1/2"
       >
         <div
           className={`
@@ -303,31 +300,31 @@ export default function EnhancedNexus({
               )}
             </div>
 
-            {/* Control Buttons (always visible when expanded) */}
+            {/* Control Buttons (visible in top right when expanded) */}
             {nexusState.isExpanded && (
-              <div className="absolute top-4 right-4 flex items-center space-x-2">
+              <div className="absolute top-2 right-2 flex items-center space-x-1 z-10">
                 <button
                   onClick={handlePinToggle}
                   className={`
-                    p-2 rounded-lg transition-all duration-200 flex items-center
+                    p-1.5 rounded-lg transition-all duration-200 flex items-center text-xs
                     ${nexusState.isPinned 
-                      ? "bg-cyan-500/20 text-cyan-400" 
-                      : "bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50"
+                      ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" 
+                      : "bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50 border border-slate-600/30"
                     }
                   `}
                   title={nexusState.isPinned ? "Unpin (Make draggable)" : "Pin (Dock in place)"}
                 >
-                  <Pin size={14} className={nexusState.isPinned ? "rotate-45" : ""} />
+                  <Pin size={12} className={nexusState.isPinned ? "rotate-45" : ""} />
                 </button>
 
                 <button
                   onClick={handleExpandToggle}
-                  className="p-2 rounded-lg bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50 transition-all duration-200"
+                  className="p-1.5 rounded-lg bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50 transition-all duration-200 border border-slate-600/30"
                   title={`Size: ${nexusState.expandSize} (click to cycle)`}
                 >
-                  {nexusState.expandSize === "small" ? <Minimize2 size={14} /> : 
-                   nexusState.expandSize === "medium" ? <Maximize2 size={14} /> : 
-                   <Move size={14} />}
+                  {nexusState.expandSize === "small" ? <Minimize2 size={12} /> : 
+                   nexusState.expandSize === "medium" ? <Maximize2 size={12} /> : 
+                   <Move size={12} />}
                 </button>
               </div>
             )}
