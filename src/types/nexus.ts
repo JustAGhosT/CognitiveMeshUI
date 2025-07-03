@@ -1,77 +1,49 @@
-import React from "react"
+// types/nexus.ts
 
+import type React from "react"
+import type { LucideIcon } from "lucide-react"
+
+// Represents an individual module in the Nexus
 export interface NexusModule {
+  /** Unique identifier */
   id: string
+  /** Display label */
   label: string
-  icon: any // Lucide icon component
+  /** Icon component */
+  icon: LucideIcon
+  /** Tailwind color key, e.g. "cyan", "blue" */
   color: string
+  /** Header text when the module is active */
   header: string
-  content: React.ReactNode
-  isActive: boolean
+  /** Short description or tooltip */
+  description: string
+  /** Optional React component for detailed UI */
+  component?: React.ComponentType<any>
+  /** Any module-specific data */
+  data?: any
 }
 
-export interface IconPosition {
-  x: number
-  y: number
+// Defines the position and rotation of an icon in the Nexus
+eexport interface IconPosition {
+  /** Unique module ID (optional) */
+  id?: string
+  /** X offset or absolute X coordinate */
+  x?: number
+  /** Y offset or absolute Y coordinate */
+  y?: number
+  /** Rotation angle in radians */
   angle: number
-  index: number
+  /** Radius from center (if orbital) */
+  radius?: number
+  /** Whether the icon is currently orbiting */
+  isOrbiting?: boolean
+  /** Original absolute coords before any transforms */
+  originalPosition?: { x: number; y: number }
+  /** Original module index (optional) */
+  index?: number
 }
 
-export interface NexusState {
-  // Expansion state
-  isExpanded: boolean
-  expansionLevel: "collapsed" | "expanded" | "full"
-  
-  // Active module
-  activeModule: string | null
-  
-  // Orbital system
-  orbitMode: boolean
-  iconPositions: IconPosition[]
-  isOrbiting: boolean
-  
-  // Pin and dock state
-  isPinned: boolean
-  isDocked: boolean
-  
-  // Size state
-  sizeMode: "small" | "medium" | "large"
-  
-  // Drag state
-  isDragging: boolean
-  dragPreviewVisible: boolean
-  dropZoneHighlighted: string | null
-}
-
-export interface NexusActions {
-  // Expansion
-  setExpanded: (expanded: boolean) => void
-  setExpansionLevel: (level: "collapsed" | "expanded" | "full") => void
-  
-  // Module management
-  setActiveModule: (moduleId: string | null) => void
-  loadModule: (moduleId: string) => void
-  
-  // Orbital system
-  toggleOrbitMode: () => void
-  setIconPositions: (positions: IconPosition[]) => void
-  updateIconPosition: (index: number, position: IconPosition) => void
-  
-  // Pin and dock
-  togglePin: () => void
-  toggleDock: () => void
-  
-  // Size management
-  cycleSizeUp: () => void
-  cycleSizeDown: () => void
-  setSizeMode: (size: "small" | "medium" | "large") => void
-  
-  // Drag operations
-  startDrag: (target: "nexus" | "icon", id?: string) => void
-  endDrag: () => void
-  highlightDropZone: (zoneId: string | null) => void
-}
-
+// Audio settings for Nexus sounds
 export interface AudioConfig {
   enabled: boolean
   volume: number
@@ -79,11 +51,13 @@ export interface AudioConfig {
     dock: string
     undock: string
     click: string
+    snap?: string
     expand: string
     collapse: string
   }
 }
 
+// Configuration for drag-preview grid and snapping
 export interface DragPreviewConfig {
   gridSize: number
   highlightColor: string
@@ -92,31 +66,80 @@ export interface DragPreviewConfig {
   animationDuration: number
 }
 
+// Configuration for the Nexus component
 export interface NexusConfig {
-  // Animation settings
+  /** CSS transition duration (ms) */
   transitionDuration: number
+  /** Orbit radius for icons */
   orbitRadius: number
-  orbitSpeed: number
-  
-  // Size settings
+  /** Orbit animation speed multiplier */
+  orbitSpeed?: number
+  /** Size presets for Nexus panel */
   sizes: {
     small: { width: number; height: number }
     medium: { width: number; height: number }
     large: { width: number; height: number }
   }
-  
-  // Orbital settings
-  iconCount: number
+  /** Number of icons displayed */
+  iconCount?: number
+  /** Duration for orbit icon animations (ms) */
   orbitAnimationDuration: number
-  
-  // Audio settings
+  /** Audio settings */
   audio: AudioConfig
-  
-  // Drag settings
+  /** Drag preview settings */
   dragPreview: DragPreviewConfig
-  
-  // Default states
+  /** Default modes */
   defaultOrbitMode: boolean
   defaultPinned: boolean
-  defaultSizeMode: "small" | "medium" | "large"
+  defaultSizeMode: keyof NexusConfig["sizes"]
+}
+
+// Internal state representation for the Nexus panel
+export interface NexusState {
+  /** Whether panel is expanded */
+  isExpanded: boolean
+  /** Current size mode */
+  expandSize: keyof NexusConfig["sizes"]
+  /** Pinned (docked) state */
+  isPinned: boolean
+  /** Explicitly docked state */
+  isDocked: boolean
+  /** Floating (draggable) state */
+  isFloating?: boolean
+  /** Currently active module */
+  activeModule: NexusModule | null
+  /** Panel position */
+  position?: { x: number; y: number }
+  /** Panel dimensions */
+  size?: { width: number; height: number }
+  /** Orbit mode flag */
+  orbitMode?: boolean
+  /** Latest icon positions */
+  iconPositions?: IconPosition[]
+  /** Whether orbiting animation is underway */
+  isOrbiting?: boolean
+  /** Drag preview visibility */
+  dragPreviewVisible?: boolean
+  /** Currently highlighted drop zone */
+  dropZoneHighlighted?: string | null
+  /** Whether a drag is in progress */
+  isDragging?: boolean
+}
+
+// Contextual actions for manipulating the Nexus
+export interface NexusActions {
+  setExpanded: (expanded: boolean) => void
+  setExpandSize: (size: keyof NexusConfig["sizes"]) => void
+  togglePin: () => void
+  toggleDock: () => void
+  setActiveModule: (module: NexusModule | null) => void
+  loadModule: (moduleId: string) => void
+  toggleOrbitMode: () => void
+  setIconPositions: (positions: IconPosition[]) => void
+  updateIconPosition: (index: number, position: IconPosition) => void
+  cycleSizeUp: () => void
+  cycleSizeDown: () => void
+  startDrag: (target: "nexus" | "icon", id?: string) => void
+  endDrag: () => void
+  highlightDropZone: (zoneId: string | null) => void
 }

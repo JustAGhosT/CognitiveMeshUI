@@ -12,6 +12,9 @@ interface OrbitalIconsProps {
   activeModule: string | null
   orbitRadius?: number
   animationDuration?: number
+  centerPosition: { x: number; y: number }
+  radius: number
+  isDragging: boolean
   className?: string
 }
 
