@@ -1,231 +1,277 @@
 "use client"
-import { useEffect, useState, useCallback } from "react"
-import type { DragState } from "@/types/nexus"
+import { useState, useEffect, useCallback } from "react"
+import type { DragPreviewConfig } from "../../types/nexus"
 
 interface DragPreviewProps {
-  dragState: DragState
-  onDropZoneEnter: (zoneId: string) => void
-  onDropZoneLeave: () => void
+  isVisible: boolean
+  draggedItem: { type: "nexus" | "icon"; id: string } | null
+  onDrop: (zoneId: string, position: { x: number; y: number }) => void
+  config: DragPreviewConfig
   className?: string
 }
 
-interface DropZoneRect {
+interface DropZone {
   id: string
-  x: number
-  y: number
-  width: number
-  height: number
-  isActive: boolean
+  bounds: DOMRect
+  type: "dock" | "grid" | "custom"
+  isHighlighted: boolean
+  canAccept: boolean
 }
 
 export default function DragPreview({
-  dragState,
-  onDropZoneEnter,
-  onDropZoneLeave,
+  isVisible,
+  draggedItem,
+  onDrop,
+  config,
   className = "",
 }: DragPreviewProps) {
-  const [dropZones, setDropZones] = useState<DropZoneRect[]>([])
+  const [dropZones, setDropZones] = useState<DropZone[]>([])
+  const [highlightedZone, setHighlightedZone] = useState<string | null>(null)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const [snapPosition, setSnapPosition] = useState<{ x: number; y: number } | null>(null)
 
-  // Grid settings
-  const GRID_SIZE = 20
-  const HIGHLIGHT_COLOR = "cyan"
-
-  // Generate drop zones based on screen grid
-  const generateDropZones = useCallback(() => {
-    if (!dragState.showPreviewGrid) return []
-
-    const zones: DropZoneRect[] = []
-    const screenWidth = window.innerWidth
-    const screenHeight = window.innerHeight
-    
-    // Create grid of potential drop zones
-    const cols = Math.floor(screenWidth / 200) // 200px wide zones
-    const rows = Math.floor(screenHeight / 150) // 150px tall zones
-    
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const x = col * 200 + 50 // Add some margin
-        const y = row * 150 + 50
-        
-        // Skip zones that are too close to edges
-        if (x + 200 > screenWidth - 50 || y + 150 > screenHeight - 50) continue
-        
-        zones.push({
-          id: `zone-${row}-${col}`,
-          x,
-          y,
-          width: 180,
-          height: 130,
-          isActive: false,
-        })
-      }
-    }
-    
-    return zones
-  }, [dragState.showPreviewGrid])
-
-  // Update drop zones when drag state changes
+  // Update mouse position
   useEffect(() => {
-    if (dragState.showPreviewGrid) {
-      const zones = generateDropZones()
-      setDropZones(zones)
-    } else {
-      setDropZones([])
-    }
-  }, [dragState.showPreviewGrid, generateDropZones])
-
-  // Track mouse position for highlighting
-  useEffect(() => {
-    if (!dragState.isDragging) return
+    if (!isVisible) return
 
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({ x: e.clientX, y: e.clientY })
-      
-      // Check which drop zone is under cursor
-      const hoveredZone = dropZones.find(zone => 
-        e.clientX >= zone.x && 
-        e.clientX <= zone.x + zone.width &&
-        e.clientY >= zone.y && 
-        e.clientY <= zone.y + zone.height
-      )
-      
-      if (hoveredZone && dragState.activeDropZone !== hoveredZone.id) {
-        onDropZoneEnter(hoveredZone.id)
-      } else if (!hoveredZone && dragState.activeDropZone) {
-        onDropZoneLeave()
-      }
     }
 
     document.addEventListener("mousemove", handleMouseMove)
     return () => document.removeEventListener("mousemove", handleMouseMove)
-  }, [dragState.isDragging, dropZones, dragState.activeDropZone, onDropZoneEnter, onDropZoneLeave])
+  }, [isVisible])
 
-  // Don't render if not dragging
-  if (!dragState.showPreviewGrid) return null
+  // Detect drop zones when dragging starts
+  useEffect(() => {
+    if (!isVisible) {
+      setDropZones([])
+      setHighlightedZone(null)
+      setSnapPosition(null)
+      return
+    }
+
+    const detectDropZones = () => {
+      const zones: DropZone[] = []
+
+      // Find dock zones
+      const dockElements = document.querySelectorAll('[data-dock-zone]')
+      dockElements.forEach((element) => {
+        const rect = element.getBoundingClientRect()
+        const zoneId = element.getAttribute('data-dock-zone') || `dock-${zones.length}`
+        const zoneType = element.getAttribute('data-zone-type') || 'dock'
+        
+        zones.push({
+          id: zoneId,
+          bounds: rect,
+          type: zoneType as "dock" | "grid" | "custom",
+          isHighlighted: false,
+          canAccept: canAcceptDrop(zoneId, draggedItem),
+        })
+      })
+
+      // Create grid zones for free placement
+      if (config.showGrid) {
+        const gridZones = createGridZones()
+        zones.push(...gridZones)
+      }
+
+      setDropZones(zones)
+    }
+
+    detectDropZones()
+  }, [isVisible, draggedItem, config.showGrid])
+
+  // Check if a zone can accept the dragged item
+  const canAcceptDrop = useCallback((zoneId: string, item: { type: "nexus" | "icon"; id: string } | null): boolean => {
+    if (!item) return false
+    
+    // Add logic to determine if zone accepts this item type
+    // For now, accept all items
+    return true
+  }, [])
+
+  // Create grid zones for snapping
+  const createGridZones = useCallback((): DropZone[] => {
+    const zones: DropZone[] = []
+    const viewport = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }
+
+    const cols = Math.floor(viewport.width / config.gridSize)
+    const rows = Math.floor(viewport.height / config.gridSize)
+
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const x = col * config.gridSize
+        const y = row * config.gridSize
+        
+        zones.push({
+          id: `grid-${row}-${col}`,
+          bounds: new DOMRect(x, y, config.gridSize, config.gridSize),
+          type: "grid",
+          isHighlighted: false,
+          canAccept: true,
+        })
+      }
+    }
+
+    return zones
+  }, [config.gridSize])
+
+  // Update highlighted zone and snap position
+  useEffect(() => {
+    if (!isVisible || dropZones.length === 0) return
+
+    const findZoneUnderMouse = () => {
+      const zone = dropZones.find(z => 
+        z.canAccept &&
+        mousePosition.x >= z.bounds.left &&
+        mousePosition.x <= z.bounds.right &&
+        mousePosition.y >= z.bounds.top &&
+        mousePosition.y <= z.bounds.bottom
+      )
+
+      if (zone) {
+        setHighlightedZone(zone.id)
+        
+        // Calculate snap position
+        if (zone.type === "grid") {
+          const snapX = Math.round(mousePosition.x / config.gridSize) * config.gridSize
+          const snapY = Math.round(mousePosition.y / config.gridSize) * config.gridSize
+          setSnapPosition({ x: snapX, y: snapY })
+        } else {
+          setSnapPosition({
+            x: zone.bounds.left + zone.bounds.width / 2,
+            y: zone.bounds.top + zone.bounds.height / 2,
+          })
+        }
+      } else {
+        setHighlightedZone(null)
+        setSnapPosition(null)
+      }
+    }
+
+    findZoneUnderMouse()
+  }, [mousePosition, dropZones, isVisible, config.gridSize])
+
+  // Handle drop
+  const handleDrop = useCallback(() => {
+    if (highlightedZone && snapPosition) {
+      onDrop(highlightedZone, snapPosition)
+    }
+  }, [highlightedZone, snapPosition, onDrop])
+
+  // Handle click to drop
+  useEffect(() => {
+    if (!isVisible) return
+
+    const handleClick = (e: MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      handleDrop()
+    }
+
+    document.addEventListener("click", handleClick)
+    return () => document.removeEventListener("click", handleClick)
+  }, [isVisible, handleDrop])
+
+  if (!isVisible) return null
 
   return (
-    <div className={`fixed inset-0 pointer-events-none z-30 ${className}`}>
+    <div className={`fixed inset-0 pointer-events-none z-50 ${className}`}>
       {/* Grid overlay */}
-      <div 
-        className="absolute inset-0 opacity-10"
-        style={{
-          backgroundImage: `
-            linear-gradient(to right, rgba(6, 182, 212, 0.3) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(6, 182, 212, 0.3) 1px, transparent 1px)
-          `,
-          backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
-        }}
-      />
-      
+      {config.showGrid && (
+        <div className="absolute inset-0 opacity-30">
+          <svg width="100%" height="100%" className="absolute inset-0">
+            <defs>
+              <pattern
+                id="grid-pattern"
+                width={config.gridSize}
+                height={config.gridSize}
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d={`M ${config.gridSize} 0 L 0 0 0 ${config.gridSize}`}
+                  fill="none"
+                  stroke="rgba(99, 102, 241, 0.2)"
+                  strokeWidth="1"
+                />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid-pattern)" />
+          </svg>
+        </div>
+      )}
+
       {/* Drop zones */}
-      {dropZones.map((zone) => (
+      {dropZones.map((zone) => {
+        const isHighlighted = highlightedZone === zone.id
+        
+        return (
+          <div
+            key={zone.id}
+            className={`
+              absolute transition-all duration-200
+              ${zone.canAccept ? 'pointer-events-auto' : 'pointer-events-none'}
+              ${isHighlighted ? 'opacity-100' : 'opacity-0'}
+              ${zone.type === 'dock' ? 'border-2 border-dashed' : ''}
+              ${zone.type === 'grid' ? 'border border-solid' : ''}
+              ${isHighlighted ? `border-${config.highlightColor} bg-${config.highlightColor}/10` : 'border-gray-400'}
+              ${zone.type === 'dock' ? 'rounded-lg' : ''}
+            `}
+            style={{
+              left: zone.bounds.left,
+              top: zone.bounds.top,
+              width: zone.bounds.width,
+              height: zone.bounds.height,
+            }}
+          >
+            {/* Drop zone label */}
+            {isHighlighted && zone.type === 'dock' && (
+              <div className="absolute top-2 left-2 text-xs font-medium text-white bg-black/50 px-2 py-1 rounded">
+                Drop Here
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {/* Snap indicator */}
+      {snapPosition && (
         <div
-          key={zone.id}
           className={`
-            absolute border-2 border-dashed rounded-lg transition-all duration-200
-            ${zone.id === dragState.activeDropZone
-              ? `border-${HIGHLIGHT_COLOR}-400 bg-${HIGHLIGHT_COLOR}-400/10 shadow-lg shadow-${HIGHLIGHT_COLOR}-500/20`
-              : `border-${HIGHLIGHT_COLOR}-600/30 bg-${HIGHLIGHT_COLOR}-600/5`
-            }
+            absolute w-4 h-4 -translate-x-1/2 -translate-y-1/2
+            border-2 border-${config.highlightColor} bg-${config.highlightColor}/20
+            rounded-full animate-pulse
+            pointer-events-none
           `}
           style={{
-            left: zone.x,
-            top: zone.y,
-            width: zone.width,
-            height: zone.height,
+            left: snapPosition.x,
+            top: snapPosition.y,
           }}
-        >
-          {/* Drop zone indicator */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className={`
-              w-12 h-12 rounded-full border-2 border-dashed flex items-center justify-center
-              ${zone.id === dragState.activeDropZone
-                ? `border-${HIGHLIGHT_COLOR}-400 bg-${HIGHLIGHT_COLOR}-400/20`
-                : `border-${HIGHLIGHT_COLOR}-600/50 bg-${HIGHLIGHT_COLOR}-600/10`
-              }
-            `}>
-              <div className={`
-                w-2 h-2 rounded-full
-                ${zone.id === dragState.activeDropZone
-                  ? `bg-${HIGHLIGHT_COLOR}-400 animate-pulse`
-                  : `bg-${HIGHLIGHT_COLOR}-600/50`
-                }
-              `} />
-            </div>
-          </div>
-          
-          {/* Zone label */}
-          {zone.id === dragState.activeDropZone && (
-            <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
-              <div className={`
-                px-2 py-1 rounded text-xs font-medium
-                bg-${HIGHLIGHT_COLOR}-500/20 text-${HIGHLIGHT_COLOR}-400
-                border border-${HIGHLIGHT_COLOR}-500/30
-              `}>
-                Drop Zone
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-      
-      {/* Snap feedback indicator */}
-      {dragState.activeDropZone && (
-        <div 
-          className="absolute pointer-events-none"
-          style={{
-            left: mousePosition.x - 10,
-            top: mousePosition.y - 10,
-          }}
-        >
-          <div className={`
-            w-5 h-5 rounded-full border-2 animate-ping
-            border-${HIGHLIGHT_COLOR}-400 bg-${HIGHLIGHT_COLOR}-400/30
-          `} />
-        </div>
+        />
       )}
-      
-      {/* Drag item preview */}
-      {dragState.draggedItem && (
-        <div 
-          className="absolute pointer-events-none"
-          style={{
-            left: mousePosition.x - 30,
-            top: mousePosition.y - 30,
-          }}
-        >
-          <div className={`
-            w-16 h-16 rounded-xl border-2 border-dashed
-            border-${HIGHLIGHT_COLOR}-400 bg-${HIGHLIGHT_COLOR}-400/20
-            flex items-center justify-center text-${HIGHLIGHT_COLOR}-400
-            backdrop-blur-sm
-          `}>
-            <div className="text-xs font-medium">
-              {dragState.draggedItem.type.toUpperCase()}
-            </div>
-          </div>
+
+      {/* Drag instructions */}
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white bg-black/70 px-4 py-2 rounded-lg text-sm">
+        {highlightedZone ? "Click to drop here" : "Drag to a highlighted zone"}
+      </div>
+
+      {/* Crosshair cursor */}
+      <div
+        className="absolute w-6 h-6 pointer-events-none"
+        style={{
+          left: mousePosition.x - 12,
+          top: mousePosition.y - 12,
+        }}
+      >
+        <div className="w-full h-full relative">
+          <div className="absolute top-1/2 left-0 w-full h-px bg-white/70 transform -translate-y-1/2" />
+          <div className="absolute left-1/2 top-0 w-px h-full bg-white/70 transform -translate-x-1/2" />
         </div>
-      )}
+      </div>
     </div>
   )
 }
-
-// Utility functions for drop zone calculations
-export const calculateDropZoneCollision = (
-  mouseX: number,
-  mouseY: number,
-  zones: DropZoneRect[]
-): DropZoneRect | null => {
-  return zones.find(zone => 
-    mouseX >= zone.x && 
-    mouseX <= zone.x + zone.width &&
-    mouseY >= zone.y && 
-    mouseY <= zone.y + zone.height
-  ) || null
-}
-
-export const snapToGrid = (x: number, y: number, gridSize: number = 20) => ({
-  x: Math.round(x / gridSize) * gridSize,
-  y: Math.round(y / gridSize) * gridSize,
-})

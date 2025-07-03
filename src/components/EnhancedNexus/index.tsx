@@ -27,7 +27,6 @@ export default function EnhancedNexus({
 }: EnhancedNexusProps) {
   // Prompt & suggestions
   const [prompt, setPrompt] = useState("")
-  const [suggestions, setSuggestions] = useState<string[]>(promptSuggestions)
   const inputRef = useRef<HTMLInputElement>(null)
   const nexusRef = useRef<HTMLDivElement>(null)
 
@@ -53,8 +52,6 @@ export default function EnhancedNexus({
     showPreviewGrid: false,
     activeDropZone: null,
   })
-
-  const [iconPositions, setIconPositions] = useState<IconPosition[]>([])
 
   // Modules
   const availableModules: NexusModule[] = [
@@ -93,9 +90,7 @@ export default function EnhancedNexus({
   ]
 
   // Volume sync
-  useEffect(() => {
-    setVolume(soundVolume)
-  }, [soundVolume, setVolume])
+  useEffect(() => { setVolume(soundVolume) }, [soundVolume, setVolume])
 
   // Sizing
   const calculateSize = useCallback(() => {
@@ -128,24 +123,20 @@ export default function EnhancedNexus({
       if (e.key === "Escape") {
         setNexusState(prev => ({ ...prev, isExpanded: false }))
         setPrompt("")
-        setSuggestions([])
       }
     }
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  // Core UI events
+  // UI events
   const handlePromptChange = (value: string) => setPrompt(value)
-
   const handleSubmit = () => {
-    if (prompt.trim()) {
-      onPromptSubmit?.(prompt)
-      setPrompt("")
-      setSuggestions([])
-      setNexusState(prev => ({ ...prev, isExpanded: false }))
-      playSound("click")
-    }
+    if (!prompt.trim()) return
+    onPromptSubmit?.(prompt)
+    setPrompt("")
+    setNexusState(prev => ({ ...prev, isExpanded: false }))
+    playSound("click")
   }
 
   const handleNexusClick = () => {
@@ -205,7 +196,7 @@ export default function EnhancedNexus({
     setDragState(prev => ({ ...prev, activeDropZone: null }))
   }
 
-  // Calculate center for orbital icons
+  // Center for orbital icons
   const centerPosition = {
     x: typeof window !== 'undefined' ? window.innerWidth / 2 : 800,
     y: typeof window !== 'undefined' ? window.innerHeight / 2 : 400,
@@ -241,187 +232,176 @@ export default function EnhancedNexus({
       {/* Main Panel */}
       <div
         ref={nexusRef}
-        className="fixed top-1/2 left-1/2 pointer-events-auto transform -translate-x-1/2 -translate-y-1/2"
+        className={`
+          fixed top-1/2 left-1/2 pointer-events-auto transform -translate-x-1/2 -translate-y-1/2
+          bg-slate-900/90 backdrop-blur-md border-2 rounded-2xl shadow-2xl
+          transition-all duration-500 cursor-pointer
+          ${nexusState.isExpanded ? "border-cyan-500/50 shadow-cyan-500/30 z-50" : "border-slate-700/50 hover:border-cyan-500/30"}
+          ${dragState.isDragging ? "scale-105 rotate-1" : ""}
+        `}
+        style={{
+          width: nexusState.size.width,
+          height: nexusState.size.height,
+        }}
+        onClick={!nexusState.isExpanded ? handleNexusClick : undefined}
+        onMouseDown={!nexusState.isPinned ? (e) => {
+          e.preventDefault()
+          handleDragStart("nexus")
+        } : undefined}
       >
+        {/* Energy Ring */}
         <div
           className={`
-            relative backdrop-blur-md bg-slate-900/90 
-            border-2 rounded-2xl shadow-2xl transition-all duration-500 cursor-pointer
-            ${nexusState.isExpanded ? "border-cyan-500/50 shadow-cyan-500/30 z-50" : "border-slate-700/50 hover:border-cyan-500/30"}
-            ${dragState.isDragging ? "scale-105 rotate-1" : ""}
+            absolute -inset-1 rounded-2xl opacity-50
+            bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20
+            ${nexusState.isExpanded ? "animate-spin-slow" : ""}
           `}
-          style={{
-            width: nexusState.size.width,
-            height: nexusState.size.height,
-          }}
-          onClick={!nexusState.isExpanded ? handleNexusClick : undefined}
-          onMouseDown={!nexusState.isPinned ? (e) => {
-            e.preventDefault()
-            handleDragStart("nexus")
-          } : undefined}
-        >
-          {/* Energy Ring */}
-          <div
-            className={`
-              absolute -inset-1 rounded-2xl opacity-50
-              bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20
-              ${nexusState.isExpanded ? "animate-spin-slow" : ""}
-            `}
-          />
-
-          <div className="relative p-6 h-full flex flex-col">
-            {/* Header */}
-            <div className="text-center mb-4">
-              <div className="text-2xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
-                {nexusState.activeModule?.header || "COMMAND NEXUS"}
-              </div>
-              {!nexusState.isExpanded && (
-                <div>
-                  <div className="text-sm text-slate-400 mb-2">
-                    {nexusState.activeModule?.description || "Central Command Interface • Click to expand"}
-                  </div>
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-                    <span className="text-xs text-cyan-400">
-                      {nexusState.activeModule ? `${nexusState.activeModule.label} Active` : "Neural Link Active"}
-                    </span>
-                  </div>
-                </div>
-              )}
+        />
+        <div className="relative p-6 h-full flex flex-col">
+          {/* Header */}
+          <div className="text-center mb-4">
+            <div className="text-2xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
+              {nexusState.activeModule?.header || "COMMAND NEXUS"}
             </div>
-
-            {/* Control Buttons (top right) */}
-            {nexusState.isExpanded && (
-              <div className="absolute top-2 right-2 flex items-center space-x-1 z-10">
-                <button
-                  onClick={handlePinToggle}
-                  className={`
-                    p-1.5 rounded-lg transition-all duration-200 flex items-center text-xs
-                    ${nexusState.isPinned 
-                      ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" 
-                      : "bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50 border border-slate-600/30"
-                    }
-                  `}
-                  title={nexusState.isPinned ? "Unpin (Make draggable)" : "Pin (Dock in place)"}
-                >
-                  <Pin size={12} className={nexusState.isPinned ? "rotate-45" : ""} />
-                </button>
-                <button
-                  onClick={handleExpandToggle}
-                  className="p-1.5 rounded-lg bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50 transition-all duration-200 border border-slate-600/30"
-                  title={`Size: ${nexusState.expandSize} (click to cycle)`}
-                >
-                  {nexusState.expandSize === "small" ? <Minimize2 size={12} /> : 
-                   nexusState.expandSize === "medium" ? <Maximize2 size={12} /> : 
-                   <Move size={12} />}
-                </button>
-              </div>
-            )}
-
-            {/* Expanded Interface */}
-            {nexusState.isExpanded && (
-              <div className="flex-1 space-y-4 mt-4">
-                {/* Command Input */}
-                <div className="relative">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={prompt}
-                    onChange={(e) => handlePromptChange(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                    placeholder={
-                      nexusState.activeModule 
-                        ? `Enter ${nexusState.activeModule.label} command...`
-                        : "Enter AI command... (Ctrl+Space)"
-                    }
-                    className="w-full bg-slate-800/50 text-white placeholder-slate-400 
-                      text-lg outline-none p-4 rounded-xl border border-slate-700/50
-                      focus:border-cyan-500/50 transition-all duration-300"
-                  />
+            {!nexusState.isExpanded && (
+              <div>
+                <div className="text-sm text-slate-400 mb-2">
+                  {nexusState.activeModule?.description || "Central Command Interface • Click to expand"}
                 </div>
-
-                {/* Action Buttons */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={onVoiceToggle}
-                      className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center space-x-2 ${
-                        isVoiceActive
-                          ? "bg-red-500/20 text-red-400 animate-pulse"
-                          : "bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50"
-                      }`}
-                    >
-                      <Mic size={16} />
-                      <span className="text-sm">Hey Mesh</span>
-                    </button>
-                    <button
-                      onClick={onDock}
-                      className="px-4 py-2 rounded-lg bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50 transition-all duration-200 flex items-center space-x-2"
-                    >
-                      <Pin size={16} />
-                      <span className="text-sm">Dock</span>
-                    </button>
-                  </div>
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!prompt.trim()}
-                    className="px-6 py-2 rounded-lg bg-cyan-500/20 text-cyan-400 
-                      hover:bg-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed
-                      transition-all duration-200 flex items-center space-x-2"
-                  >
-                    <Send size={16} />
-                    <span>Execute</span>
-                  </button>
-                </div>
-
-                {/* Command Chips */}
-                <div className="flex flex-wrap gap-2">
-                  {promptSuggestions.map((chip) => (
-                    <button
-                      key={chip}
-                      onClick={() => setPrompt(chip.toLowerCase())}
-                      className="px-3 py-1 text-xs bg-slate-700/50 text-slate-300 
-                        rounded-full hover:bg-cyan-500/20 hover:text-cyan-400 
-                        transition-all duration-200"
-                    >
-                      {chip}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Active Module Info */}
-                {nexusState.activeModule && (
-                  <div className="flex items-center space-x-3 p-3 bg-slate-800/30 rounded-lg border border-slate-700/50">
-                    <div className={`w-10 h-10 rounded-lg bg-${nexusState.activeModule.color}-500/20 flex items-center justify-center`}>
-                      <nexusState.activeModule.icon size={20} className={`text-${nexusState.activeModule.color}-400`} />
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-white">{nexusState.activeModule.label}</div>
-                      <div className="text-xs text-slate-400">{nexusState.activeModule.description}</div>
-                    </div>
-                    <button
-                      onClick={() => setNexusState(prev => ({ ...prev, activeModule: null }))}
-                      className="ml-auto p-1 text-slate-400 hover:text-red-400 transition-colors"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
-
-                {/* Status Indicator */}
-                <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-700/50">
-                  <span>Cognitive Mesh Command Interface</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                    <span>Neural Network Active</span>
-                  </div>
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+                  <span className="text-xs text-cyan-400">
+                    {nexusState.activeModule ? `${nexusState.activeModule.label} Active` : "Neural Link Active"}
+                  </span>
                 </div>
               </div>
             )}
           </div>
+          {/* Top right controls */}
+          {nexusState.isExpanded && (
+            <div className="absolute top-2 right-2 flex items-center space-x-1 z-10">
+              <button
+                onClick={handlePinToggle}
+                className={`
+                  p-1.5 rounded-lg transition-all duration-200 flex items-center text-xs
+                  ${nexusState.isPinned 
+                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" 
+                    : "bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50 border border-slate-600/30"
+                  }
+                `}
+                title={nexusState.isPinned ? "Unpin (Make draggable)" : "Pin (Dock in place)"}
+              >
+                <Pin size={12} className={nexusState.isPinned ? "rotate-45" : ""} />
+              </button>
+              <button
+                onClick={handleExpandToggle}
+                className="p-1.5 rounded-lg bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50 transition-all duration-200 border border-slate-600/30"
+                title={`Size: ${nexusState.expandSize} (click to cycle)`}
+              >
+                {nexusState.expandSize === "small" ? <Minimize2 size={12} /> : 
+                 nexusState.expandSize === "medium" ? <Maximize2 size={12} /> : 
+                 <Move size={12} />}
+              </button>
+            </div>
+          )}
+          {/* Expanded UI */}
+          {nexusState.isExpanded && (
+            <div className="flex-1 space-y-4 mt-4">
+              {/* Command Input */}
+              <div className="relative">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={prompt}
+                  onChange={(e) => handlePromptChange(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                  placeholder={
+                    nexusState.activeModule 
+                      ? `Enter ${nexusState.activeModule.label} command...`
+                      : "Enter AI command... (Ctrl+Space)"
+                  }
+                  className="w-full bg-slate-800/50 text-white placeholder-slate-400 
+                    text-lg outline-none p-4 rounded-xl border border-slate-700/50
+                    focus:border-cyan-500/50 transition-all duration-300"
+                />
+              </div>
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={onVoiceToggle}
+                    className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center space-x-2 ${
+                      isVoiceActive
+                        ? "bg-red-500/20 text-red-400 animate-pulse"
+                        : "bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50"
+                    }`}
+                  >
+                    <Mic size={16} />
+                    <span className="text-sm">Hey Mesh</span>
+                  </button>
+                  <button
+                    onClick={onDock}
+                    className="px-4 py-2 rounded-lg bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50 transition-all duration-200 flex items-center space-x-2"
+                  >
+                    <Pin size={16} />
+                    <span className="text-sm">Dock</span>
+                  </button>
+                </div>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!prompt.trim()}
+                  className="px-6 py-2 rounded-lg bg-cyan-500/20 text-cyan-400 
+                    hover:bg-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed
+                    transition-all duration-200 flex items-center space-x-2"
+                >
+                  <Send size={16} />
+                  <span>Execute</span>
+                </button>
+              </div>
+              {/* Command Chips */}
+              <div className="flex flex-wrap gap-2">
+                {promptSuggestions.map((chip) => (
+                  <button
+                    key={chip}
+                    onClick={() => setPrompt(chip.toLowerCase())}
+                    className="px-3 py-1 text-xs bg-slate-700/50 text-slate-300 
+                      rounded-full hover:bg-cyan-500/20 hover:text-cyan-400 
+                      transition-all duration-200"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+              {/* Active Module Info */}
+              {nexusState.activeModule && (
+                <div className="flex items-center space-x-3 p-3 bg-slate-800/30 rounded-lg border border-slate-700/50">
+                  <div className={`w-10 h-10 rounded-lg bg-${nexusState.activeModule.color}-500/20 flex items-center justify-center`}>
+                    <nexusState.activeModule.icon size={20} className={`text-${nexusState.activeModule.color}-400`} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-white">{nexusState.activeModule.label}</div>
+                    <div className="text-xs text-slate-400">{nexusState.activeModule.description}</div>
+                  </div>
+                  <button
+                    onClick={() => setNexusState(prev => ({ ...prev, activeModule: null }))}
+                    className="ml-auto p-1 text-slate-400 hover:text-red-400 transition-colors"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              {/* Status Indicator */}
+              <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-700/50">
+                <span>Cognitive Mesh Command Interface</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                  <span>Neural Network Active</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
       {/* Custom CSS for animations */}
       <style>{`
         .animate-spin-slow { animation: spin 8s linear infinite; }
@@ -429,3 +409,5 @@ export default function EnhancedNexus({
     </div>
   )
 }
+
+export type { EnhancedNexusProps }

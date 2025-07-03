@@ -1,13 +1,19 @@
 "use client"
-import { useEffect, useState, useCallback } from "react"
-import type { IconPosition, NexusModule } from "@/types/nexus"
+import { useState, useEffect, useCallback } from "react"
+import type { IconPosition, NexusModule } from "../../types/nexus"
 
 interface OrbitalIconsProps {
   modules: NexusModule[]
   isExpanded: boolean
+  orbitMode: boolean
+  iconPositions: IconPosition[]
+  onIconPositionsChange: (positions: IconPosition[]) => void
+  onModuleClick: (moduleId: string) => void
+  activeModule: string | null
+  orbitRadius?: number
+  animationDuration?: number
   centerPosition: { x: number; y: number }
   radius: number
-  onModuleClick: (module: NexusModule) => void
   isDragging: boolean
   className?: string
 }
@@ -15,147 +21,206 @@ interface OrbitalIconsProps {
 export default function OrbitalIcons({
   modules,
   isExpanded,
-  centerPosition,
-  radius,
+  orbitMode,
+  iconPositions,
+  onIconPositionsChange,
   onModuleClick,
-  isDragging,
+  activeModule,
+  orbitRadius = 150,
+  animationDuration = 500,
   className = "",
 }: OrbitalIconsProps) {
-  const [iconPositions, setIconPositions] = useState<IconPosition[]>([])
-  const [animating, setAnimating] = useState(false)
+  const [isTransitioning, setIsTransitioning] = useState(false)
 
-  // Calculate orbital positions
-  const calculateOrbitPositions = useCallback(() => {
-    const positions: IconPosition[] = modules.map((module, index) => {
-      const angle = (index * (360 / modules.length)) * (Math.PI / 180)
-      const orbitRadius = isExpanded ? radius : 0
-      
-      return {
-        id: module.id,
-        angle,
-        radius: orbitRadius,
-        isOrbiting: isExpanded,
-        originalPosition: {
-          x: centerPosition.x + Math.cos(angle) * orbitRadius,
-          y: centerPosition.y + Math.sin(angle) * orbitRadius,
-        },
-      }
+  // Calculate static positions (left/right sides)
+  const calculateStaticPositions = useCallback((): IconPosition[] => {
+    const positions: IconPosition[] = []
+    const leftIcons = modules.slice(0, 2)
+    const rightIcons = modules.slice(2, 4)
+
+    // Left side icons
+    leftIcons.forEach((_, index) => {
+      positions.push({
+        x: -80, // 80px to the left
+        y: (index - 0.5) * 60, // Vertically centered with spacing
+        angle: 0,
+        index,
+      })
     })
-    
+
+    // Right side icons
+    rightIcons.forEach((_, index) => {
+      positions.push({
+        x: 80, // 80px to the right
+        y: (index - 0.5) * 60, // Vertically centered with spacing
+        angle: 0,
+        index: index + 2,
+      })
+    })
+
     return positions
-  }, [modules, isExpanded, centerPosition, radius])
+  }, [modules])
 
-  // Update positions when state changes
+  // Calculate orbital positions around the nexus
+  const calculateOrbitalPositions = useCallback((): IconPosition[] => {
+    const positions: IconPosition[] = []
+    const angleStep = (2 * Math.PI) / modules.length
+
+    modules.forEach((_, index) => {
+      const angle = index * angleStep - Math.PI / 2 // Start from top
+      const x = Math.cos(angle) * orbitRadius
+      const y = Math.sin(angle) * orbitRadius
+
+      positions.push({
+        x,
+        y,
+        angle: angle + Math.PI / 2, // Rotate icon to face outward
+        index,
+      })
+    })
+
+    return positions
+  }, [modules, orbitRadius])
+
+  // Update positions when orbit mode changes
   useEffect(() => {
-    setAnimating(true)
-    const newPositions = calculateOrbitPositions()
-    setIconPositions(newPositions)
+    setIsTransitioning(true)
     
-    // Reset animation flag after animation completes
-    const timer = setTimeout(() => setAnimating(false), 500)
-    return () => clearTimeout(timer)
-  }, [calculateOrbitPositions])
+    const newPositions = orbitMode ? calculateOrbitalPositions() : calculateStaticPositions()
+    onIconPositionsChange(newPositions)
 
-  // Static positioning for collapsed state
-  const getStaticPosition = (index: number) => {
-    const isLeft = index < 2
-    const yOffset = (index % 2) * 80 - 40
-    
-    return {
-      x: isLeft ? centerPosition.x - 120 : centerPosition.x + 120,
-      y: centerPosition.y + yOffset,
-    }
-  }
+    const timeout = setTimeout(() => {
+      setIsTransitioning(false)
+    }, animationDuration)
 
-  // Animation styles
-  const getIconStyle = (position: IconPosition, index: number) => {
-    const staticPos = getStaticPosition(index)
-    const targetPos = isExpanded ? position.originalPosition : staticPos
-    
-    return {
-      left: targetPos.x - 28, // Adjust for icon width (56px / 2)
-      top: targetPos.y - 28,  // Adjust for icon height (56px / 2)
-      transform: "translate(0, 0)", // Remove transform, use left/top positioning
-      transition: animating ? "all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1)" : "none",
-      zIndex: isExpanded ? 60 : 45,
+    return () => clearTimeout(timeout)
+  }, [orbitMode, calculateOrbitalPositions, calculateStaticPositions, onIconPositionsChange, animationDuration])
+
+  // Initialize positions
+  useEffect(() => {
+    if (iconPositions.length === 0) {
+      const initialPositions = orbitMode ? calculateOrbitalPositions() : calculateStaticPositions()
+      onIconPositionsChange(initialPositions)
     }
-  }
+  }, [iconPositions.length, orbitMode, calculateOrbitalPositions, calculateStaticPositions, onIconPositionsChange])
+
+  // Handle module click with sound and animation
+  const handleModuleClick = useCallback((moduleId: string, index: number) => {
+    onModuleClick(moduleId)
+    
+    // Add click animation
+    const iconElement = document.getElementById(`orbital-icon-${index}`)
+    if (iconElement) {
+      iconElement.classList.add("animate-ping")
+      setTimeout(() => {
+        iconElement.classList.remove("animate-ping")
+      }, 300)
+    }
+  }, [onModuleClick])
+
+  // Only render icons when not expanded or when in orbit mode
+  const shouldRender = !isExpanded || orbitMode
+
+  if (!shouldRender) return null
 
   return (
-    <div className={`fixed inset-0 pointer-events-none ${className}`}>
+    <div className={`absolute inset-0 pointer-events-none ${className}`}>
       {modules.map((module, index) => {
         const position = iconPositions[index]
-        const Icon = module.icon
-        
         if (!position) return null
-        
+
+        const Icon = module.icon
+        const isActive = activeModule === module.id
+
         return (
-          <button
+          <div
             key={module.id}
+            id={`orbital-icon-${index}`}
             className={`
-              absolute w-14 h-14 pointer-events-auto
-              backdrop-blur-md bg-slate-900/80 
-              border border-${module.color}-500/50 rounded-xl
-              flex items-center justify-center cursor-pointer
-              transition-all duration-300 hover:scale-110
-              hover:shadow-${module.color}-500/30 hover:border-${module.color}-400
-              ${isDragging ? "cursor-move" : ""}
-              ${isExpanded ? "hover:shadow-lg" : ""}
+              absolute pointer-events-auto
+              transition-all duration-${animationDuration}ms ease-in-out
+              ${isTransitioning ? 'transition-transform' : ''}
+              ${orbitMode ? 'z-50' : 'z-40'}
             `}
-            style={getIconStyle(position, index)}
-            onClick={() => {
-              console.log("Orbital icon clicked:", module.label)
-              onModuleClick(module)
+            style={{
+              transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) rotate(${position.angle}rad)`,
+              left: '50%',
+              top: '50%',
             }}
-            onMouseEnter={() => {
-              // Optional: Add hover sound effect
-            }}
-            title={module.label}
           >
-            <Icon size={22} className={`text-${module.color}-400`} />
-            
-            {/* Orbital trail effect when expanded */}
-            {isExpanded && (
-              <div
+            <button
+              onClick={() => handleModuleClick(module.id, index)}
+              className={`
+                w-14 h-14 backdrop-blur-md rounded-xl
+                flex items-center justify-center cursor-pointer
+                transition-all duration-300 hover:scale-110
+                transform-gpu
+                ${isActive 
+                  ? `bg-${module.color}-500/30 border-2 border-${module.color}-400 shadow-lg shadow-${module.color}-500/50` 
+                  : `bg-slate-900/80 border border-${module.color}-500/50 hover:border-${module.color}-400`
+                }
+                ${orbitMode ? 'animate-pulse' : ''}
+                hover:shadow-${module.color}-500/30
+              `}
+              title={module.label}
+            >
+              <Icon 
+                size={22} 
                 className={`
-                  absolute -inset-1 rounded-xl opacity-20
-                  bg-gradient-to-r from-${module.color}-500/20 to-transparent
+                  transition-colors duration-300
+                  ${isActive ? `text-${module.color}-200` : `text-${module.color}-400`}
+                `} 
+              />
+            </button>
+
+            {/* Active module indicator */}
+            {isActive && (
+              <div className="absolute -inset-1 rounded-xl opacity-50 animate-pulse">
+                <div className={`w-full h-full rounded-xl bg-gradient-to-r from-${module.color}-500/30 to-${module.color}-600/30`} />
+              </div>
+            )}
+
+            {/* Orbit trail effect */}
+            {orbitMode && (
+              <div 
+                className={`
+                  absolute inset-0 rounded-xl opacity-20
+                  bg-gradient-to-r from-transparent via-${module.color}-500/20 to-transparent
                   animate-pulse
                 `}
+                style={{
+                  animation: `orbit-trail 2s linear infinite ${index * 0.5}s`,
+                }}
               />
             )}
-          </button>
+          </div>
         )
       })}
-      
-      {/* Orbital path visualization (optional) */}
-      {isExpanded && (
-        <div
-          className="absolute rounded-full border border-cyan-500/10 pointer-events-none"
-          style={{
-            left: centerPosition.x - radius,
-            top: centerPosition.y - radius,
-            width: radius * 2,
-            height: radius * 2,
-            transition: "all 0.5s ease-out",
-          }}
-        />
+
+      {/* Orbit mode indicator */}
+      {orbitMode && (
+        <div className="absolute inset-0 pointer-events-none">
+          <div 
+            className="absolute border border-cyan-500/20 rounded-full"
+            style={{
+              width: `${orbitRadius * 2}px`,
+              height: `${orbitRadius * 2}px`,
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+            }}
+          />
+        </div>
       )}
+
+      {/* Custom CSS for orbit trail animation */}
+      <style jsx>{`
+        @keyframes orbit-trail {
+          0% { opacity: 0.2; }
+          50% { opacity: 0.6; }
+          100% { opacity: 0.2; }
+        }
+      `}</style>
     </div>
   )
 }
-
-// Utility function for calculating orbital mathematics
-export const calculateOrbitPosition = (
-  centerX: number,
-  centerY: number,
-  radius: number,
-  angle: number
-) => ({
-  x: centerX + Math.cos(angle) * radius,
-  y: centerY + Math.sin(angle) * radius,
-})
-
-// Animation timing constants
-export const ORBIT_ANIMATION_DURATION = 500
-export const ORBIT_EASING = "cubic-bezier(0.4, 0.0, 0.2, 1)"

@@ -30,7 +30,7 @@ export function useAudioSystem(configOrVolume: AudioConfig | number) {
   const audioContextRef = useRef<AudioContext | null>(null)
   const soundBuffersRef = useRef<Map<string, AudioBuffer>>(new Map())
 
-  // Initialize both HTMLAudioElements and synthesized buffers
+  // Setup both HTMLAudioElements and WebAudio buffers
   useEffect(() => {
     // HTMLAudioElements
     if (isConfig) {
@@ -69,6 +69,7 @@ export function useAudioSystem(configOrVolume: AudioConfig | number) {
     return () => {
       audioContextRef.current?.close()
     }
+  // eslint-disable-next-line
   }, [])
 
   // Play function covers both types
@@ -80,6 +81,7 @@ export function useAudioSystem(configOrVolume: AudioConfig | number) {
       const elt = audioState.sounds[type]
       if (elt) {
         elt.currentTime = 0
+        elt.volume = audioState.volume
         elt.play().catch(() => {})
         return
       }

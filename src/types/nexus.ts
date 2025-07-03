@@ -1,73 +1,145 @@
+// types/nexus.ts
+
 import type React from "react"
 import type { LucideIcon } from "lucide-react"
 
+// Represents an individual module in the Nexus
 export interface NexusModule {
+  /** Unique identifier */
   id: string
+  /** Display label */
   label: string
+  /** Icon component */
   icon: LucideIcon
+  /** Tailwind color key, e.g. "cyan", "blue" */
   color: string
+  /** Header text when the module is active */
   header: string
+  /** Short description or tooltip */
   description: string
+  /** Optional React component for detailed UI */
   component?: React.ComponentType<any>
+  /** Any module-specific data */
   data?: any
 }
 
-export interface NexusState {
-  isExpanded: boolean
-  expandSize: "small" | "medium" | "large"
-  isPinned: boolean
-  isDocked: boolean
-  isFloating: boolean
-  activeModule: NexusModule | null
-  position: { x: number; y: number }
-  size: { width: number; height: number }
-}
-
-export interface IconPosition {
-  id: string
+// Defines the position and rotation of an icon in the Nexus
+eexport interface IconPosition {
+  /** Unique module ID (optional) */
+  id?: string
+  /** X offset or absolute X coordinate */
+  x?: number
+  /** Y offset or absolute Y coordinate */
+  y?: number
+  /** Rotation angle in radians */
   angle: number
-  radius: number
-  isOrbiting: boolean
-  originalPosition: { x: number; y: number }
+  /** Radius from center (if orbital) */
+  radius?: number
+  /** Whether the icon is currently orbiting */
+  isOrbiting?: boolean
+  /** Original absolute coords before any transforms */
+  originalPosition?: { x: number; y: number }
+  /** Original module index (optional) */
+  index?: number
 }
 
-export interface DragState {
-  isDragging: boolean
-  draggedItem: {
-    id: string
-    type: "nexus" | "icon"
-    data?: any
-  } | null
-  showPreviewGrid: boolean
-  activeDropZone: string | null
-}
-
-export interface AudioState {
-  isEnabled: boolean
+// Audio settings for Nexus sounds
+export interface AudioConfig {
+  enabled: boolean
   volume: number
   sounds: {
-    dock: HTMLAudioElement | null
-    undock: HTMLAudioElement | null
-    click: HTMLAudioElement | null
-    snap: HTMLAudioElement | null
+    dock: string
+    undock: string
+    click: string
+    snap?: string
+    expand: string
+    collapse: string
   }
 }
 
-export interface NexusContextType {
-  nexusState: NexusState
-  dragState: DragState
-  audioState: AudioState
-  iconPositions: IconPosition[]
-  availableModules: NexusModule[]
-  
-  // Actions
+// Configuration for drag-preview grid and snapping
+export interface DragPreviewConfig {
+  gridSize: number
+  highlightColor: string
+  snapThreshold: number
+  showGrid: boolean
+  animationDuration: number
+}
+
+// Configuration for the Nexus component
+export interface NexusConfig {
+  /** CSS transition duration (ms) */
+  transitionDuration: number
+  /** Orbit radius for icons */
+  orbitRadius: number
+  /** Orbit animation speed multiplier */
+  orbitSpeed?: number
+  /** Size presets for Nexus panel */
+  sizes: {
+    small: { width: number; height: number }
+    medium: { width: number; height: number }
+    large: { width: number; height: number }
+  }
+  /** Number of icons displayed */
+  iconCount?: number
+  /** Duration for orbit icon animations (ms) */
+  orbitAnimationDuration: number
+  /** Audio settings */
+  audio: AudioConfig
+  /** Drag preview settings */
+  dragPreview: DragPreviewConfig
+  /** Default modes */
+  defaultOrbitMode: boolean
+  defaultPinned: boolean
+  defaultSizeMode: keyof NexusConfig["sizes"]
+}
+
+// Internal state representation for the Nexus panel
+export interface NexusState {
+  /** Whether panel is expanded */
+  isExpanded: boolean
+  /** Current size mode */
+  expandSize: keyof NexusConfig["sizes"]
+  /** Pinned (docked) state */
+  isPinned: boolean
+  /** Explicitly docked state */
+  isDocked: boolean
+  /** Floating (draggable) state */
+  isFloating?: boolean
+  /** Currently active module */
+  activeModule: NexusModule | null
+  /** Panel position */
+  position?: { x: number; y: number }
+  /** Panel dimensions */
+  size?: { width: number; height: number }
+  /** Orbit mode flag */
+  orbitMode?: boolean
+  /** Latest icon positions */
+  iconPositions?: IconPosition[]
+  /** Whether orbiting animation is underway */
+  isOrbiting?: boolean
+  /** Drag preview visibility */
+  dragPreviewVisible?: boolean
+  /** Currently highlighted drop zone */
+  dropZoneHighlighted?: string | null
+  /** Whether a drag is in progress */
+  isDragging?: boolean
+}
+
+// Contextual actions for manipulating the Nexus
+export interface NexusActions {
   setExpanded: (expanded: boolean) => void
-  setExpandSize: (size: "small" | "medium" | "large") => void
-  setPinned: (pinned: boolean) => void
+  setExpandSize: (size: keyof NexusConfig["sizes"]) => void
+  togglePin: () => void
+  toggleDock: () => void
   setActiveModule: (module: NexusModule | null) => void
-  setPosition: (position: { x: number; y: number }) => void
-  startDrag: (item: { id: string; type: "nexus" | "icon"; data?: any }) => void
+  loadModule: (moduleId: string) => void
+  toggleOrbitMode: () => void
+  setIconPositions: (positions: IconPosition[]) => void
+  updateIconPosition: (index: number, position: IconPosition) => void
+  cycleSizeUp: () => void
+  cycleSizeDown: () => void
+  startDrag: (target: "nexus" | "icon", id?: string) => void
   endDrag: () => void
-  playSound: (soundType: keyof AudioState["sounds"]) => void
-  updateIconPositions: (positions: IconPosition[]) => void
+  highlightDropZone: (zoneId: string | null) => void
 }

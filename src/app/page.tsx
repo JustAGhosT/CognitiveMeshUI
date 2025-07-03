@@ -329,7 +329,19 @@ function DashboardContent() {
         <EnergyFlow direction="vertical" intensity="medium" color="purple" className="right-1/3 top-0 w-px h-full" />
       </div>
 
-
+      {/* Enhanced Central Command Nexus - Only show when expanded */}
+      {nexusExpanded && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+          <div className="pointer-events-auto">
+            <EnhancedNexus
+              onPromptSubmit={handlePromptSubmit}
+              isVoiceActive={isVoiceActive}
+              onVoiceToggle={() => setIsVoiceActive(!isVoiceActive)}
+              onDock={() => setNexusExpanded(false)}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="relative z-10 p-6">
         {/* Enhanced Two-Row Spaceship Bridge Header */}
@@ -483,6 +495,22 @@ function DashboardContent() {
                   >
                     <Layers size={14} />
                     <span className="text-xs font-medium">GRID</span>
+                  </button>
+                </div>
+
+                {/* Nexus Mode Toggle */}
+                <div className="flex items-center bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden">
+                  <button
+                    onClick={handleNexusToggle}
+                    className={`flex items-center space-x-2 px-3 py-2 transition-all duration-300 ${
+                      nexusExpanded
+                        ? "bg-cyan-500/20 text-cyan-400"
+                        : "hover:bg-slate-600/50 text-slate-400 hover:text-cyan-400"
+                    }`}
+                    title={nexusExpanded ? "Switch to Basic Nexus" : "Switch to Enhanced Nexus"}
+                  >
+                    <Brain size={14} />
+                    <span className="text-xs font-medium">{nexusExpanded ? "ENHANCED" : "BASIC"}</span>
                   </button>
                 </div>
 
@@ -858,13 +886,15 @@ function DashboardContent() {
       </div>
 
       {/* Command Nexus - Special Standalone Area (positioned in center of screen) */}
-      <EnhancedNexus
-        onPromptSubmit={handlePromptSubmit}
-        isVoiceActive={isVoiceActive}
-        onVoiceToggle={handleVoiceActivation}
-        initialPosition={nexusPosition}
-        soundVolume={soundVolume}
-      />
+      {!nexusExpanded && (
+        <DraggableNexus
+          onPromptSubmit={handlePromptSubmit}
+          isVoiceActive={isVoiceActive}
+          onVoiceToggle={handleVoiceActivation}
+          initialPosition={nexusPosition}
+          isDocked={false}
+        />
+      )}
 
       {/* Voice Activation Feedback */}
       {isVoiceActive && (
