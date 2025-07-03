@@ -1,12 +1,12 @@
 "use client"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Mic, Send, Users, Brain, BarChart3, Shield, Pin, Maximize2, Minimize2, Move } from "lucide-react"
-import { useAudioSystem } from "@/hooks/useAudioSystem"
+import { useAudioSystem } from "../../hooks/useAudioSystem"
 import OrbitalIcons from "./OrbitalIcons"
 import DragPreview from "./DragPreview"
 import type { NexusModule, NexusState, DragState, IconPosition } from "@/types/nexus"
 
-interface EnhancedNexusProps {
+export interface EnhancedNexusProps {
   onPromptSubmit?: (prompt: string) => void
   isVoiceActive?: boolean
   onVoiceToggle?: () => void
@@ -14,6 +14,8 @@ interface EnhancedNexusProps {
   initialPosition?: { x: number; y: number }
   soundVolume?: number
 }
+
+const promptSuggestions = ["Deploy Agent", "Security Scan", "Performance Report", "System Status"]
 
 export default function EnhancedNexus({
   onPromptSubmit,
@@ -23,17 +25,18 @@ export default function EnhancedNexus({
   initialPosition = { x: 400, y: 300 },
   soundVolume = 0.7,
 }: EnhancedNexusProps) {
+  // Prompt & suggestions
   const [prompt, setPrompt] = useState("")
-  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>(promptSuggestions)
   const inputRef = useRef<HTMLInputElement>(null)
   const nexusRef = useRef<HTMLDivElement>(null)
 
   // Audio system
   const { audioState, playSound, setVolume } = useAudioSystem(soundVolume)
 
-  // Enhanced state management
+  // Nexus panel state
   const [nexusState, setNexusState] = useState<NexusState>({
-    isExpanded: true, // Start expanded to showcase features
+    isExpanded: true,
     expandSize: "medium",
     isPinned: true,
     isDocked: false,
@@ -43,6 +46,7 @@ export default function EnhancedNexus({
     size: { width: 400, height: 120 },
   })
 
+  // Drag state for DnD
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
     draggedItem: null,
@@ -52,67 +56,62 @@ export default function EnhancedNexus({
 
   const [iconPositions, setIconPositions] = useState<IconPosition[]>([])
 
-  // Define available modules
+  // Modules
   const availableModules: NexusModule[] = [
-    { 
-      id: "agent-control", 
-      label: "Agent Control", 
-      icon: Users, 
+    {
+      id: "agent-control",
+      label: "Agent Control",
+      icon: Users,
       color: "cyan",
       header: "Agent Control Center",
       description: "Manage AI agents and their tasks"
     },
-    { 
-      id: "reasoning-engine", 
-      label: "Reasoning Engine", 
-      icon: Brain, 
+    {
+      id: "reasoning-engine",
+      label: "Reasoning Engine",
+      icon: Brain,
       color: "blue",
       header: "Reasoning Engine",
       description: "Advanced cognitive processing"
     },
-    { 
-      id: "analytics-hub", 
-      label: "Analytics Hub", 
-      icon: BarChart3, 
+    {
+      id: "analytics-hub",
+      label: "Analytics Hub",
+      icon: BarChart3,
       color: "purple",
       header: "Analytics Hub",
       description: "Data insights and metrics"
     },
-    { 
-      id: "security-matrix", 
-      label: "Security Matrix", 
-      icon: Shield, 
+    {
+      id: "security-matrix",
+      label: "Security Matrix",
+      icon: Shield,
       color: "green",
       header: "Security Matrix",
       description: "Security monitoring and control"
     },
   ]
 
-  const promptSuggestions = ["Deploy Agent", "Security Scan", "Performance Report", "System Status"]
-
-  // Update audio volume when prop changes
+  // Volume sync
   useEffect(() => {
     setVolume(soundVolume)
   }, [soundVolume, setVolume])
 
-  // Size calculations based on expand state
+  // Sizing
   const calculateSize = useCallback(() => {
-    if (!nexusState.isExpanded) {
-      return { width: 400, height: 120 }
-    }
-    
+    if (!nexusState.isExpanded) return { width: 400, height: 120 }
     const baseHeight = 320
-    const heightMultiplier = nexusState.expandSize === "small" ? 1 : 
-                            nexusState.expandSize === "medium" ? 1.4 : 1.8
-    
+    const heightMultiplier =
+      nexusState.expandSize === "small" ? 1 :
+      nexusState.expandSize === "medium" ? 1.4 : 1.8
+
     return {
-      width: nexusState.expandSize === "small" ? 450 : 
+      width: nexusState.expandSize === "small" ? 450 :
              nexusState.expandSize === "medium" ? 500 : 600,
       height: baseHeight * heightMultiplier
     }
   }, [nexusState.isExpanded, nexusState.expandSize])
 
-  // Update size when state changes
   useEffect(() => {
     const newSize = calculateSize()
     setNexusState(prev => ({ ...prev, size: newSize }))
@@ -132,15 +131,12 @@ export default function EnhancedNexus({
         setSuggestions([])
       }
     }
-
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  // Event handlers
-  const handlePromptChange = (value: string) => {
-    setPrompt(value)
-  }
+  // Core UI events
+  const handlePromptChange = (value: string) => setPrompt(value)
 
   const handleSubmit = () => {
     if (prompt.trim()) {
@@ -159,17 +155,16 @@ export default function EnhancedNexus({
   }
 
   const handleModuleClick = (module: NexusModule) => {
-    console.log("Module clicked:", module.label)
     setNexusState(prev => ({ ...prev, activeModule: module }))
     playSound("click")
   }
 
   const handlePinToggle = () => {
     const newPinned = !nexusState.isPinned
-    setNexusState(prev => ({ 
-      ...prev, 
+    setNexusState(prev => ({
+      ...prev,
       isPinned: newPinned,
-      isDocked: newPinned ? prev.isDocked : false 
+      isDocked: newPinned ? prev.isDocked : false
     }))
     playSound(newPinned ? "dock" : "undock")
   }
@@ -178,7 +173,6 @@ export default function EnhancedNexus({
     const sizes: ("small" | "medium" | "large")[] = ["small", "medium", "large"]
     const currentIndex = sizes.indexOf(nexusState.expandSize)
     const nextIndex = (currentIndex + 1) % sizes.length
-    
     setNexusState(prev => ({ ...prev, expandSize: sizes[nextIndex] }))
     playSound("click")
   }
@@ -211,7 +205,7 @@ export default function EnhancedNexus({
     setDragState(prev => ({ ...prev, activeDropZone: null }))
   }
 
-  // Calculate center position for orbital icons (relative to screen center)
+  // Calculate center for orbital icons
   const centerPosition = {
     x: typeof window !== 'undefined' ? window.innerWidth / 2 : 800,
     y: typeof window !== 'undefined' ? window.innerHeight / 2 : 400,
@@ -219,15 +213,15 @@ export default function EnhancedNexus({
 
   return (
     <div className="fixed top-0 left-0 w-full h-full pointer-events-none">
-      {/* Semi-opaque overlay when expanded */}
+      {/* Overlay */}
       {nexusState.isExpanded && (
-        <div 
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 pointer-events-auto" 
-          onClick={() => setNexusState(prev => ({ ...prev, isExpanded: false }))} 
+        <div
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 pointer-events-auto"
+          onClick={() => setNexusState(prev => ({ ...prev, isExpanded: false }))}
         />
       )}
 
-      {/* Orbital Icons System */}
+      {/* Orbital Icons */}
       <OrbitalIcons
         modules={availableModules}
         isExpanded={nexusState.isExpanded}
@@ -237,15 +231,15 @@ export default function EnhancedNexus({
         isDragging={dragState.isDragging}
       />
 
-      {/* Drag Preview System */}
+      {/* Drag Preview */}
       <DragPreview
         dragState={dragState}
         onDropZoneEnter={handleDropZoneEnter}
         onDropZoneLeave={handleDropZoneLeave}
       />
 
-      {/* Main Nexus Container */}
-      <div 
+      {/* Main Panel */}
+      <div
         ref={nexusRef}
         className="fixed top-1/2 left-1/2 pointer-events-auto transform -translate-x-1/2 -translate-y-1/2"
       >
@@ -253,11 +247,7 @@ export default function EnhancedNexus({
           className={`
             relative backdrop-blur-md bg-slate-900/90 
             border-2 rounded-2xl shadow-2xl transition-all duration-500 cursor-pointer
-            ${
-              nexusState.isExpanded
-                ? "border-cyan-500/50 shadow-cyan-500/30 z-50"
-                : "border-slate-700/50 hover:border-cyan-500/30"
-            }
+            ${nexusState.isExpanded ? "border-cyan-500/50 shadow-cyan-500/30 z-50" : "border-slate-700/50 hover:border-cyan-500/30"}
             ${dragState.isDragging ? "scale-105 rotate-1" : ""}
           `}
           style={{
@@ -300,7 +290,7 @@ export default function EnhancedNexus({
               )}
             </div>
 
-            {/* Control Buttons (visible in top right when expanded) */}
+            {/* Control Buttons (top right) */}
             {nexusState.isExpanded && (
               <div className="absolute top-2 right-2 flex items-center space-x-1 z-10">
                 <button
@@ -316,7 +306,6 @@ export default function EnhancedNexus({
                 >
                   <Pin size={12} className={nexusState.isPinned ? "rotate-45" : ""} />
                 </button>
-
                 <button
                   onClick={handleExpandToggle}
                   className="p-1.5 rounded-lg bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50 transition-all duration-200 border border-slate-600/30"
@@ -365,7 +354,6 @@ export default function EnhancedNexus({
                       <Mic size={16} />
                       <span className="text-sm">Hey Mesh</span>
                     </button>
-
                     <button
                       onClick={onDock}
                       className="px-4 py-2 rounded-lg bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-600/50 transition-all duration-200 flex items-center space-x-2"
@@ -374,7 +362,6 @@ export default function EnhancedNexus({
                       <span className="text-sm">Dock</span>
                     </button>
                   </div>
-
                   <button
                     onClick={handleSubmit}
                     disabled={!prompt.trim()}
@@ -387,7 +374,7 @@ export default function EnhancedNexus({
                   </button>
                 </div>
 
-                {/* Contextual Command Chips */}
+                {/* Command Chips */}
                 <div className="flex flex-wrap gap-2">
                   {promptSuggestions.map((chip) => (
                     <button
@@ -442,6 +429,3 @@ export default function EnhancedNexus({
     </div>
   )
 }
-
-export { EnhancedNexus }
-export type { EnhancedNexusProps }
