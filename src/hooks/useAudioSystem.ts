@@ -1,183 +1,132 @@
+// src/hooks/useAudioSystem.ts
+
 "use client"
-import { useState, useEffect, useCallback, useRef } from "react"
-import type { AudioConfig } from "../types/nexus"
+import { useEffect, useRef, useState, useCallback } from "react"
+import type { AudioConfig, AudioState } from "@/types/nexus"
 
-interface AudioSystemHook {
-  isSupported: boolean
-  isEnabled: boolean
-  volume: number
-  setVolume: (volume: number) => void
-  toggleEnabled: () => void
-  playSound: (soundName: keyof AudioConfig["sounds"]) => Promise<void>
-  preloadSounds: () => Promise<void>
-}
+// Combines pre-loaded audio files and Web Audio API synthesis
+export function useAudioSystem(configOrVolume: AudioConfig | number) {
+  // Determine if config object or simple initialVolume
+  const isConfig = typeof configOrVolume === "object"
+  const config: AudioConfig = isConfig
+    ? (configOrVolume as AudioConfig)
+    : {
+        enabled: true,
+        volume: configOrVolume as number,
+        sounds: { dock: "", undock: "", click: "", snap: "" }
+      }
 
-export function useAudioSystem(config: AudioConfig): AudioSystemHook {
-  const [isSupported, setIsSupported] = useState(false)
-  const [isEnabled, setIsEnabled] = useState(config.enabled)
-  const [volume, setVolumeState] = useState(config.volume)
-  const audioContext = useRef<AudioContext | null>(null)
-  const audioBuffers = useRef<Map<string, AudioBuffer>>(new Map())
-  const gainNode = useRef<GainNode | null>(null)
+  // HTMLAudioElement map (for URLs)
+  const [audioState, setAudioState] = useState<AudioState>({
+    isEnabled: config.enabled,
+    volume: config.volume,
+    sounds: Object.keys(config.sounds).reduce((acc, key) => {
+      acc[key as keyof typeof config.sounds] = null
+      return acc
+    }, {} as Record<keyof typeof config.sounds, HTMLAudioElement | null>)
+  })
 
-  // Initialize Web Audio API
+  // Web Audio API context & buffers
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const soundBuffersRef = useRef<Map<string, AudioBuffer>>(new Map())
+
+  // Setup both HTMLAudioElements and WebAudio buffers
   useEffect(() => {
-    const initializeAudio = async () => {
-      try {
-        // Check if Web Audio API is supported
-        if (typeof window !== "undefined" && (window.AudioContext || (window as any).webkitAudioContext)) {
-          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
-          audioContext.current = new AudioContextClass()
-          
-          // Create gain node for volume control
-          gainNode.current = audioContext.current.createGain()
-          gainNode.current.connect(audioContext.current.destination)
-          gainNode.current.gain.value = volume
-          
-          setIsSupported(true)
-          
-          // Resume audio context if it's suspended (required by some browsers)
-          if (audioContext.current.state === "suspended") {
-            await audioContext.current.resume()
-          }
-        } else {
-          console.warn("Web Audio API not supported")
-          setIsSupported(false)
-        }
-      } catch (error) {
-        console.error("Failed to initialize audio system:", error)
-        setIsSupported(false)
-      }
-    }
-
-    initializeAudio()
-
-    return () => {
-      if (audioContext.current) {
-        audioContext.current.close()
-      }
-    }
-  }, [])
-
-  // Update gain node volume when volume changes
-  useEffect(() => {
-    if (gainNode.current) {
-      gainNode.current.gain.value = volume
-    }
-  }, [volume])
-
-  // Generate simple audio buffers for UI sounds
-  const generateSoundBuffer = useCallback((frequency: number, duration: number, type: OscillatorType = "sine"): AudioBuffer | null => {
-    if (!audioContext.current) return null
-
-    const sampleRate = audioContext.current.sampleRate
-    const frameCount = sampleRate * duration
-    const buffer = audioContext.current.createBuffer(1, frameCount, sampleRate)
-    const channelData = buffer.getChannelData(0)
-
-    for (let i = 0; i < frameCount; i++) {
-      const t = i / sampleRate
-      let sample = 0
-
-      switch (type) {
-        case "sine":
-          sample = Math.sin(2 * Math.PI * frequency * t)
-          break
-        case "square":
-          sample = Math.sign(Math.sin(2 * Math.PI * frequency * t))
-          break
-        case "sawtooth":
-          sample = 2 * (t * frequency - Math.floor(t * frequency + 0.5))
-          break
-        case "triangle":
-          sample = 2 * Math.abs(2 * (t * frequency - Math.floor(t * frequency + 0.5))) - 1
-          break
-      }
-
-      // Apply fade out to prevent clicks
-      const fadeOut = Math.max(0, 1 - (t / duration) * 4)
-      channelData[i] = sample * fadeOut * 0.1 // Reduce volume
-    }
-
-    return buffer
-  }, [])
-
-  // Preload sound effects
-  const preloadSounds = useCallback(async () => {
-    if (!audioContext.current || !isSupported) return
-
-    try {
-      // Generate simple UI sounds
-      const sounds = {
-        dock: generateSoundBuffer(800, 0.1, "sine"), // High pitch for docking
-        undock: generateSoundBuffer(400, 0.1, "sine"), // Lower pitch for undocking
-        click: generateSoundBuffer(1000, 0.05, "sine"), // Short click
-        expand: generateSoundBuffer(600, 0.15, "triangle"), // Expanding sound
-        collapse: generateSoundBuffer(300, 0.1, "triangle"), // Collapsing sound
-      }
-
-      // Store buffers
-      Object.entries(sounds).forEach(([name, buffer]) => {
-        if (buffer) {
-          audioBuffers.current.set(name, buffer)
+    // HTMLAudioElements
+    if (isConfig) {
+      const loaded = { ...audioState.sounds }
+      Object.entries(config.sounds).forEach(([key, src]) => {
+        if (src) {
+          const audio = new Audio(src)
+          audio.volume = config.volume
+          loaded[key as keyof typeof config.sounds] = audio
         }
       })
-    } catch (error) {
-      console.error("Failed to preload sounds:", error)
+      setAudioState((prev) => ({ ...prev, sounds: loaded }))
     }
-  }, [generateSoundBuffer, isSupported])
 
-  // Play a sound
-  const playSound = useCallback(async (soundName: keyof AudioConfig["sounds"]) => {
-    if (!audioContext.current || !isSupported || !isEnabled) return
+    // Web Audio API init
+    if (typeof window !== "undefined") {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const createBuffer = (freq: number, dur: number) => {
+        const ctx = audioContextRef.current!
+        const sr = ctx.sampleRate
+        const buf = ctx.createBuffer(1, sr * dur, sr)
+        const data = buf.getChannelData(0)
+        for (let i = 0; i < data.length; i++) {
+          const t = i / sr
+          const env = Math.exp(-t * 10)
+          data[i] = Math.sin(2 * Math.PI * freq * t) * env * 0.3
+        }
+        return buf
+      }
+      // map default synthesized tones
+      soundBuffersRef.current.set("click", createBuffer(1000, 0.08))
+      soundBuffersRef.current.set("snap", createBuffer(1200, 0.12))
+      soundBuffersRef.current.set("dock", createBuffer(800, 0.15))
+      soundBuffersRef.current.set("undock", createBuffer(600, 0.15))
+    }
+    return () => {
+      audioContextRef.current?.close()
+    }
+  // eslint-disable-next-line
+  }, [])
 
-    try {
-      const buffer = audioBuffers.current.get(soundName)
-      if (!buffer) {
-        console.warn(`Sound '${soundName}' not found`)
+  // Play function covers both types
+  const playSound = useCallback(
+    (type: keyof AudioState["sounds"]) => {
+      if (!audioState.isEnabled) return
+
+      // first try HTMLAudioElement
+      const elt = audioState.sounds[type]
+      if (elt) {
+        elt.currentTime = 0
+        elt.volume = audioState.volume
+        elt.play().catch(() => {})
         return
       }
 
-      // Resume context if suspended
-      if (audioContext.current.state === "suspended") {
-        await audioContext.current.resume()
+      // fallback to Web Audio API
+      const ctx = audioContextRef.current
+      const buffer = soundBuffersRef.current.get(type)
+      if (ctx && buffer) {
+        const src = ctx.createBufferSource()
+        const gain = ctx.createGain()
+        src.buffer = buffer
+        gain.gain.value = audioState.volume
+        src.connect(gain)
+        gain.connect(ctx.destination)
+        src.start()
       }
+    },
+    [audioState]
+  )
 
-      // Create and play sound
-      const source = audioContext.current.createBufferSource()
-      source.buffer = buffer
-      source.connect(gainNode.current!)
-      source.start()
-    } catch (error) {
-      console.error(`Failed to play sound '${soundName}':`, error)
-    }
-  }, [isSupported, isEnabled])
+  const setVolume = useCallback((vol: number) => {
+    const v = Math.max(0, Math.min(1, vol))
+    setAudioState((prev) => ({ ...prev, volume: v }))
+    Object.values(audioState.sounds).forEach((a) => a && (a.volume = v))
+  }, [audioState.sounds])
 
-  // Set volume
-  const setVolume = useCallback((newVolume: number) => {
-    const clampedVolume = Math.max(0, Math.min(1, newVolume))
-    setVolumeState(clampedVolume)
+  const toggleAudio = useCallback(() => {
+    setAudioState((prev) => ({ ...prev, isEnabled: !prev.isEnabled }))
   }, [])
 
-  // Toggle enabled state
-  const toggleEnabled = useCallback(() => {
-    setIsEnabled(prev => !prev)
+  const resumeAudio = useCallback(async () => {
+    const ctx = audioContextRef.current
+    if (ctx && ctx.state === "suspended") await ctx.resume()
   }, [])
 
-  // Preload sounds when component mounts
+  // resume on first user interaction
   useEffect(() => {
-    if (isSupported) {
-      preloadSounds()
+    const resume = () => resumeAudio()
+    document.addEventListener("click", resume)
+    document.addEventListener("keydown", resume)
+    return () => {
+      document.removeEventListener("click", resume)
+      document.removeEventListener("keydown", resume)
     }
-  }, [isSupported, preloadSounds])
+  }, [resumeAudio])
 
-  return {
-    isSupported,
-    isEnabled,
-    volume,
-    setVolume,
-    toggleEnabled,
-    playSound,
-    preloadSounds,
-  }
+  return { audioState, playSound, setVolume, toggleAudio, resumeAudio }
 }
