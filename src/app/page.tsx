@@ -329,15 +329,7 @@ function DashboardContent() {
         <EnergyFlow direction="vertical" intensity="medium" color="purple" className="right-1/3 top-0 w-px h-full" />
       </div>
 
-      {/* Enhanced Central Command Nexus - Only show when expanded */}
-      {nexusExpanded && (
-        <EnhancedNexus
-          onPromptSubmit={handlePromptSubmit}
-          isVoiceActive={isVoiceActive}
-          onVoiceToggle={() => setIsVoiceActive(!isVoiceActive)}
-          onDock={() => setNexusExpanded(false)}
-        />
-      )}
+
 
       <div className="relative z-10 p-6">
         {/* Enhanced Two-Row Spaceship Bridge Header */}
@@ -866,12 +858,12 @@ function DashboardContent() {
       </div>
 
       {/* Command Nexus - Special Standalone Area (positioned in center of screen) */}
-      <DraggableNexus
+      <EnhancedNexus
         onPromptSubmit={handlePromptSubmit}
         isVoiceActive={isVoiceActive}
         onVoiceToggle={handleVoiceActivation}
         initialPosition={nexusPosition}
-        isDocked={false}
+        soundVolume={soundVolume}
       />
 
       {/* Voice Activation Feedback */}
