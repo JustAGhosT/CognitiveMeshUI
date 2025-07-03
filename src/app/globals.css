@@ -125,11 +125,13 @@
 /* Custom space theme utilities */
 @layer utilities {
   .glass-effect {
-    @apply backdrop-blur-glass bg-glass-blue/80 border border-neon-cyan;
+    backdrop-filter: blur(10px);
+    background: rgba(0, 20, 40, 0.8);
+    border: 1px solid rgba(0, 255, 255, 0.3);
   }
   
   .neon-glow {
-    box-shadow: 0 0 10px theme('colors.cyan-glow'), 0 0 20px theme('colors.cyan-glow'), 0 0 30px theme('colors.cyan-glow');
+    box-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff;
   }
   
   .space-bg {
