@@ -1,81 +1,101 @@
 "use client"
 
-import type React from "react"
-import { useEffect, useRef } from "react"
-import styles from "./EnergyFlow.module.css"
-
 interface EnergyFlowProps {
-  isActive?: boolean
-  intensity?: number
-  color?: string
   direction?: "horizontal" | "vertical" | "diagonal"
+  intensity?: "low" | "medium" | "high"
+  color?: "cyan" | "blue" | "purple" | "green"
   className?: string
 }
 
-export const EnergyFlow: React.FC<EnergyFlowProps> = ({
-  isActive = true,
-  intensity = 1,
-  color = "#00ffff",
+export default function EnergyFlow({
   direction = "horizontal",
+  intensity = "medium",
+  color = "cyan",
   className = "",
-}) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    let animationId: number
-    let time = 0
-
-    const animate = () => {
-      if (!isActive) return
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-      // Create energy flow effect
-      const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0)
-      gradient.addColorStop(0, "transparent")
-      gradient.addColorStop(0.5, color)
-      gradient.addColorStop(1, "transparent")
-
-      ctx.strokeStyle = gradient
-      ctx.lineWidth = 2 * intensity
-      ctx.shadowColor = color
-      ctx.shadowBlur = 10 * intensity
-
-      // Draw flowing energy lines
-      for (let i = 0; i < 3; i++) {
-        ctx.beginPath()
-        const offset = (time + i * 100) % 300
-        const y = canvas.height / 2 + Math.sin(time * 0.01 + i) * 5
-
-        ctx.moveTo(-50 + offset, y)
-        ctx.lineTo(50 + offset, y)
-        ctx.stroke()
-      }
-
-      time += 2
-      animationId = requestAnimationFrame(animate)
+}: EnergyFlowProps) {
+  const getFlowPath = () => {
+    switch (direction) {
+      case "vertical":
+        return "M 0 0 L 0 100"
+      case "diagonal":
+        return "M 0 0 L 100 100"
+      default:
+        return "M 0 0 L 100 0"
     }
+  }
 
-    animate()
+  const getAnimationDuration = () => {
+    // Get effect speed from CSS custom property, default to 1
+    const effectSpeed = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--effect-speed") || "1",
+    )
 
-    return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId)
-      }
+    switch (intensity) {
+      case "low":
+        return `${3 / effectSpeed}s`
+      case "high":
+        return `${1 / effectSpeed}s`
+      default:
+        return `${2 / effectSpeed}s`
     }
-  }, [isActive, intensity, color])
+  }
+
+  const colorMap = {
+    cyan: "#06b6d4",
+    blue: "#3b82f6",
+    purple: "#8b5cf6",
+    green: "#10b981",
+  }
 
   return (
-    <div className={`${styles.energyFlow} ${className}`}>
-      <canvas ref={canvasRef} width={200} height={50} className={styles.canvas} />
+    <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
+      <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id={`energy-gradient-${color}`} gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="transparent" />
+            <stop offset="50%" stopColor={colorMap[color]} stopOpacity="0.8" />
+            <stop offset="100%" stopColor="transparent" />
+          </linearGradient>
+
+          <filter id={`energy-glow-${color}`}>
+            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+            <feMerge>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* Main energy line */}
+        <path
+          d={getFlowPath()}
+          stroke={`url(#energy-gradient-${color})`}
+          strokeWidth="2"
+          fill="none"
+          filter={`url(#energy-glow-${color})`}
+        />
+
+        {/* Animated energy pulse */}
+        <circle r="3" fill={colorMap[color]} filter={`url(#energy-glow-${color})`}>
+          <animateMotion dur={getAnimationDuration()} repeatCount="indefinite" path={getFlowPath()} />
+          <animate attributeName="opacity" values="0;1;0" dur={getAnimationDuration()} repeatCount="indefinite" />
+        </circle>
+
+        {/* Secondary pulse for more dynamic effect */}
+        <circle r="2" fill={colorMap[color]} opacity="0.6">
+          <animateMotion dur={getAnimationDuration()} repeatCount="indefinite" path={getFlowPath()} begin="0.5s" />
+          <animate
+            attributeName="opacity"
+            values="0;0.6;0"
+            dur={getAnimationDuration()}
+            repeatCount="indefinite"
+            begin="0.5s"
+          />
+        </circle>
+      </svg>
     </div>
   )
 }
 
-export default EnergyFlow
+export { EnergyFlow }
+export type { EnergyFlowProps }

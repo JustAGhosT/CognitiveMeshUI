@@ -1,7 +1,7 @@
 "use client"
 
-import AdvancedDraggableModule from "../src/components/AdvancedDraggableModule/index"
+import CommandNexus from "../src/components/CommandNexus/index"
 
 export default function SyntheticV0PageForDeployment() {
-  return <AdvancedDraggableModule />
+  return <CommandNexus />
 }

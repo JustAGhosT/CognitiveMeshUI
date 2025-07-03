@@ -1,102 +1,136 @@
 "use client"
-
-import type React from "react"
-import { useState, useRef, useEffect } from "react"
-import styles from "./DraggableModule.module.css"
+import React, { useState, useRef } from "react"
+import { GripVertical, Maximize2, Pin } from "lucide-react"
 
 interface DraggableModuleProps {
-  id: string
   title: string
-  content: React.ReactNode
-  initialPosition?: { x: number; y: number }
-  onDrag?: (id: string, position: { x: number; y: number }) => void
-  onDock?: (id: string) => void
-  isDocked?: boolean
+  children: React.ReactNode
   className?: string
+  onDock?: () => void
+  onFloat?: () => void
+  isFloating?: boolean
+  energyLevel?: number
 }
 
-export const DraggableModule: React.FC<DraggableModuleProps> = ({
-  id,
+export default function DraggableModule({
   title,
-  content,
-  initialPosition = { x: 0, y: 0 },
-  onDrag,
-  onDock,
-  isDocked = false,
+  children,
   className = "",
-}) => {
-  const [position, setPosition] = useState(initialPosition)
+  onDock,
+  onFloat,
+  isFloating = false,
+  energyLevel = 0.5,
+}: DraggableModuleProps) {
   const [isDragging, setIsDragging] = useState(false)
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
-  const moduleRef = useRef<HTMLDivElement>(null)
+  const [isHovered, setIsHovered] = useState(false)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const dragRef = useRef<HTMLDivElement>(null)
+  const startPos = useRef({ x: 0, y: 0 })
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (isDocked) return
+    setIsDragging(true)
+    startPos.current = { x: e.clientX - position.x, y: e.clientY - position.y }
+  }
 
-    const rect = moduleRef.current?.getBoundingClientRect()
-    if (rect) {
-      setDragOffset({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+  const handleMouseMove = (e: MouseEvent) => {
+    if (isDragging) {
+      setPosition({
+        x: e.clientX - startPos.current.x,
+        y: e.clientY - startPos.current.y,
       })
-      setIsDragging(true)
     }
   }
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging || isDocked) return
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
 
-      const newPosition = {
-        x: e.clientX - dragOffset.x,
-        y: e.clientY - dragOffset.y,
-      }
-
-      setPosition(newPosition)
-      onDrag?.(id, newPosition)
-    }
-
-    const handleMouseUp = () => {
-      setIsDragging(false)
-    }
-
+  React.useEffect(() => {
     if (isDragging) {
       document.addEventListener("mousemove", handleMouseMove)
       document.addEventListener("mouseup", handleMouseUp)
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove)
+        document.removeEventListener("mouseup", handleMouseUp)
+      }
     }
+  }, [isDragging])
 
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
-    }
-  }, [isDragging, dragOffset, onDrag, id, isDocked])
-
-  const handleDockToggle = () => {
-    onDock?.(id)
-  }
+  const energyColor = energyLevel > 0.7 ? "cyan" : energyLevel > 0.4 ? "blue" : "purple"
+  const energyIntensity = Math.floor(energyLevel * 100)
 
   return (
     <div
-      ref={moduleRef}
-      className={`${styles.draggableModule} ${isDocked ? styles.docked : ""} ${isDragging ? styles.dragging : ""} ${className}`}
-      style={{
-        transform: isDocked ? "none" : `translate(${position.x}px, ${position.y}px)`,
-        position: isDocked ? "relative" : "absolute",
-      }}
+      ref={dragRef}
+      className={`
+        relative backdrop-blur-md bg-slate-900/60 border rounded-xl shadow-2xl
+        transition-all duration-300 cursor-move group
+        ${isHovered || isDragging ? "shadow-cyan-500/30 border-cyan-500/50" : "border-slate-700/50"}
+        ${isDragging ? "z-50 scale-105" : "z-10"}
+        ${isFloating ? "fixed" : "relative"}
+        ${className}
+      `}
+      style={
+        isFloating
+          ? {
+              left: position.x,
+              top: position.y,
+              transform: isDragging ? "rotate(2deg)" : "rotate(0deg)",
+            }
+          : {}
+      }
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <div className={styles.header} onMouseDown={handleMouseDown}>
-        <h3 className={styles.title}>{title}</h3>
-        <button
-          className={styles.dockButton}
-          onClick={handleDockToggle}
-          aria-label={isDocked ? "Undock module" : "Dock module"}
-        >
-          {isDocked ? "⚡" : "🔒"}
-        </button>
+      {/* Animated Energy Border */}
+      <div
+        className={`absolute inset-0 rounded-xl opacity-${energyIntensity} pointer-events-none`}
+        style={{
+          background: `linear-gradient(90deg, 
+            transparent 0%, 
+            ${
+              energyColor === "cyan"
+                ? "rgba(34, 211, 238, 0.3)"
+                : energyColor === "blue"
+                  ? "rgba(59, 130, 246, 0.3)"
+                  : "rgba(147, 51, 234, 0.3)"
+            } 50%, 
+            transparent 100%)`,
+          animation: `pulse-energy-${energyColor} 2s ease-in-out infinite`,
+        }}
+      />
+
+      {/* Module Header */}
+      <div
+        className="flex items-center justify-between p-4 border-b border-slate-700/50 cursor-grab active:cursor-grabbing"
+        onMouseDown={handleMouseDown}
+      >
+        <div className="flex items-center space-x-3">
+          <GripVertical size={16} className="text-slate-400 group-hover:text-cyan-400 transition-colors" />
+          <h3 className="font-semibold text-white">{title}</h3>
+          <div className={`w-2 h-2 rounded-full animate-pulse bg-${energyColor}-400`} />
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <button onClick={onFloat} className="p-1 rounded hover:bg-slate-700/50 transition-colors">
+            <Maximize2 size={14} className="text-slate-400 hover:text-cyan-400" />
+          </button>
+          <button onClick={onDock} className="p-1 rounded hover:bg-slate-700/50 transition-colors">
+            <Pin size={14} className="text-slate-400 hover:text-cyan-400" />
+          </button>
+        </div>
       </div>
-      <div className={styles.content}>{content}</div>
+
+      {/* Module Content */}
+      <div className="p-4">{children}</div>
+
+      {/* Holographic Glow Effect */}
+      {(isHovered || isDragging) && (
+        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500/10 via-transparent to-blue-500/10 pointer-events-none" />
+      )}
     </div>
   )
 }
 
-export default DraggableModule
+export { DraggableModule }
+export type { DraggableModuleProps }
