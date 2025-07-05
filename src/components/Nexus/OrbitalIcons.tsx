@@ -1,20 +1,17 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
-import type { IconPosition, NexusModule } from "../../types/nexus"
+import type { IconPosition, NexusModule } from "@/types/nexus"
+import { useCallback, useEffect, useState } from "react"
 
-interface OrbitalIconsProps {
+export interface OrbitalIconsProps {
   modules: NexusModule[]
   isExpanded: boolean
   orbitMode: boolean
   iconPositions: IconPosition[]
   onIconPositionsChange: (positions: IconPosition[]) => void
   onModuleClick: (moduleId: string) => void
-  activeModule: string | null
+  activeModule: NexusModule | null
   orbitRadius?: number
   animationDuration?: number
-  centerPosition: { x: number; y: number }
-  radius: number
-  isDragging: boolean
   className?: string
 }
 
@@ -32,54 +29,36 @@ export default function OrbitalIcons({
 }: OrbitalIconsProps) {
   const [isTransitioning, setIsTransitioning] = useState(false)
 
-  // Calculate static positions (left/right sides)
-  const calculateStaticPositions = useCallback((): IconPosition[] => {
-    const positions: IconPosition[] = []
-    const leftIcons = modules.slice(0, 2)
-    const rightIcons = modules.slice(2, 4)
-
-    // Left side icons
-    leftIcons.forEach((_, index) => {
-      positions.push({
-        x: -80, // 80px to the left
-        y: (index - 0.5) * 60, // Vertically centered with spacing
-        angle: 0,
-        index,
-      })
-    })
-
-    // Right side icons
-    rightIcons.forEach((_, index) => {
-      positions.push({
-        x: 80, // 80px to the right
-        y: (index - 0.5) * 60, // Vertically centered with spacing
-        angle: 0,
-        index: index + 2,
-      })
-    })
-
-    return positions
-  }, [modules])
-
-  // Calculate orbital positions around the nexus
+  // Calculate orbital positions
   const calculateOrbitalPositions = useCallback((): IconPosition[] => {
-    const positions: IconPosition[] = []
-    const angleStep = (2 * Math.PI) / modules.length
-
-    modules.forEach((_, index) => {
-      const angle = index * angleStep - Math.PI / 2 // Start from top
+    return modules.map((module, index) => {
+      const angle = (index * 2 * Math.PI) / modules.length
       const x = Math.cos(angle) * orbitRadius
       const y = Math.sin(angle) * orbitRadius
-
-      positions.push({
+      
+      return {
         x,
         y,
-        angle: angle + Math.PI / 2, // Rotate icon to face outward
-        index,
-      })
+        angle,
+        moduleId: module.id,
+      }
     })
+  }, [modules, orbitRadius])
 
-    return positions
+  // Calculate static positions
+  const calculateStaticPositions = useCallback((): IconPosition[] => {
+    return modules.map((module, index) => {
+      const angle = (index * 2 * Math.PI) / modules.length
+      const x = Math.cos(angle) * (orbitRadius * 0.7)
+      const y = Math.sin(angle) * (orbitRadius * 0.7)
+      
+      return {
+        x,
+        y,
+        angle,
+        moduleId: module.id,
+      }
+    })
   }, [modules, orbitRadius])
 
   // Update positions when orbit mode changes
@@ -130,7 +109,7 @@ export default function OrbitalIcons({
         if (!position) return null
 
         const Icon = module.icon
-        const isActive = activeModule === module.id
+        const isActive = activeModule?.id === module.id
 
         return (
           <div
@@ -173,7 +152,7 @@ export default function OrbitalIcons({
               />
             </button>
 
-            {/* Active module indicator */}
+            {/* Active glow effect */}
             {isActive && (
               <div className="absolute -inset-1 rounded-xl opacity-50 animate-pulse">
                 <div className={`w-full h-full rounded-xl bg-gradient-to-r from-${module.color}-500/30 to-${module.color}-600/30`} />
@@ -223,4 +202,4 @@ export default function OrbitalIcons({
       `}</style>
     </div>
   )
-}
+} 

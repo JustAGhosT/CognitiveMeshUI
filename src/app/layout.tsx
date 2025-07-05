@@ -1,6 +1,7 @@
-import type React from "react"
 import type { Metadata } from "next"
-// import "./globals.css"
+import type React from "react"
+import { ThemeProvider } from "../../components/theme-provider"
+import "./globals.css"
 
 export const metadata: Metadata = {
   title: "Cognitive Mesh - Enterprise AI Transformation Framework",
@@ -14,8 +15,17 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className="font-sans antialiased">{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className="font-sans antialiased dark">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   )
 }

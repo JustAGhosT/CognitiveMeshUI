@@ -1,44 +1,43 @@
 "use client"
-import { useState, useEffect } from "react"
 import type React from "react"
+import { useEffect, useState } from "react"
 
-import {
-  Brain,
-  Shield,
-  Activity,
-  Users,
-  BarChart3,
-  Eye,
-  CheckCircle,
-  TrendingUp,
-  Database,
-  Lock,
-  Mic,
-  MicOff,
-  Grid3X3,
-  Move,
-  Layers,
-  Cpu,
-  Monitor,
-  Server,
-  Zap,
-  Maximize,
-  Minimize,
-  Square,
-  RotateCcw,
-  Volume2,
-  Gauge,
-  Sparkles,
-} from "lucide-react"
-import EnergyFlow from "@/components/EnergyFlow"
-import EnhancedNexus from "@/components/EnhancedNexus"
-import DraggableComponent from "@/components/DraggableComponent"
+import { Nexus } from "@/components"
 import DockZone from "@/components/DockZone"
+import DraggableComponent from "@/components/DraggableComponent"
+import EnergyFlow from "@/components/EnergyFlow"
 import { DragDropProvider, useDragDrop } from "@/contexts/DragDropContext"
-import DraggableNexus from "@/components/DraggableNexus"
+import {
+    Activity,
+    BarChart3,
+    Brain,
+    CheckCircle,
+    Cpu,
+    Database,
+    Eye,
+    Gauge,
+    Grid3X3,
+    Layers,
+    Lock,
+    Maximize,
+    Mic,
+    MicOff,
+    Minimize,
+    Monitor,
+    Move,
+    RotateCcw,
+    Server,
+    Shield,
+    Sparkles,
+    Square,
+    TrendingUp,
+    Users,
+    Volume2,
+    Zap,
+} from "lucide-react"
 
 function DashboardContent() {
-  const { globalSize, setGlobalSize, snapToGrid, showGrid, toggleSnapToGrid, toggleShowGrid, dockItem } = useDragDrop()
+  const { globalSize, setGlobalSize, snapToGrid, showGrid, toggleSnapToGrid, toggleShowGrid, dockItem, items } = useDragDrop()
 
   const [activeLayer, setActiveLayer] = useState("foundation")
   const [isVoiceActive, setIsVoiceActive] = useState(false)
@@ -51,12 +50,12 @@ function DashboardContent() {
   const [effectSpeed, setEffectSpeed] = useState(1.0) // 0.1 to 3.0
   const [soundVolume, setSoundVolume] = useState(0.7) // 0.0 to 1.0
   const [particleEffectsEnabled, setParticleEffectsEnabled] = useState(() => {
-    // Initialize from localStorage if available, default to true
+    // Initialize from localStorage if available, default to false
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('cognitive-mesh-particle-effects')
-      return saved ? JSON.parse(saved) : true
+      return saved ? JSON.parse(saved) : false
     }
-    return true
+    return false
   })
 
   // Calculate center position for Command Nexus
@@ -186,32 +185,37 @@ function DashboardContent() {
     { time: "25 min ago", event: "Data backup completed", type: "backup" },
   ]
 
-  // Initialize all components in docked positions (excluding Command Nexus)
+  // Initialize all components in docked positions (including Command Nexus)
   useEffect(() => {
     const initializeDockedItems = () => {
+      // Dock Command Nexus to central dock zone
+      setTimeout(() => {
+        dockItem("command-nexus", "central-nexus-dock", 0)
+      }, 100)
+
       // Dock metrics to metrics dashboard
       metrics.forEach((metric, index) => {
         setTimeout(() => {
           dockItem(metric.id, "metrics-dock", index)
-        }, 100 * index)
+        }, 200 + (100 * index))
       })
 
       // Dock main modules
       setTimeout(() => {
         dockItem("architecture", "main-modules-dock", 0)
-      }, 500)
+      }, 600)
 
       // Dock sidebar tools
       setTimeout(() => {
         dockItem("security", "sidebar-dock", 0)
         dockItem("resources", "sidebar-dock", 1)
-      }, 600)
+      }, 700)
 
       // Dock activity modules
       setTimeout(() => {
         dockItem("agents", "bottom-dock", 0)
         dockItem("activity", "bottom-dock", 1)
-      }, 700)
+      }, 800)
     }
 
     // Delay initialization to ensure zones are registered
@@ -357,11 +361,14 @@ function DashboardContent() {
       {nexusExpanded && (
         <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
           <div className="pointer-events-auto">
-            <EnhancedNexus
+            <Nexus
+              mode="enhanced"
               onPromptSubmit={handlePromptSubmit}
               isVoiceActive={isVoiceActive}
               onVoiceToggle={() => setIsVoiceActive(!isVoiceActive)}
               onDock={() => setNexusExpanded(false)}
+              soundVolume={soundVolume}
+              enableAudio={true}
             />
           </div>
         </div>
@@ -383,11 +390,11 @@ function DashboardContent() {
                   <p className="text-slate-400 mt-1 text-base">Enterprise AI Transformation Framework</p>
                   <div className="flex items-center space-x-4 mt-1">
                     <div className="flex items-center space-x-2 text-green-400">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                      <div className={`w-2 h-2 bg-green-400 rounded-full ${particleEffectsEnabled ? 'animate-pulse' : ''}`} />
                       <span className="text-xs">Neural Network Online</span>
                     </div>
                     <div className="flex items-center space-x-2 text-cyan-400">
-                      <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+                      <div className={`w-2 h-2 bg-cyan-400 rounded-full ${particleEffectsEnabled ? 'animate-pulse' : ''}`} />
                       <span className="text-xs">Quantum Processing Active</span>
                     </div>
                   </div>
@@ -599,6 +606,22 @@ function DashboardContent() {
           </div>
         </header>
 
+        {/* Central Command Nexus Dock Zone */}
+        <div className="flex justify-center mb-6">
+          <DockZone
+            id="central-nexus-dock"
+            label="Command Center"
+            maxItems={1}
+            allowedSizes={["large"]}
+            className="w-full max-w-2xl"
+            isResizable={false}
+            minWidth={400}
+            minHeight={120}
+            initialWidth={500}
+            initialHeight={150}
+          />
+        </div>
+
         {/* Metrics Dashboard */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
           <DockZone
@@ -621,7 +644,7 @@ function DashboardContent() {
             id="main-modules-dock"
             label="Main Modules"
             maxItems={6}
-            allowedSizes={["medium", "large", "x-large"]}
+            allowedSizes={["medium", "large"]}
             className="xl:col-span-2"
             isResizable={true}
             minWidth={600}
@@ -730,13 +753,13 @@ function DashboardContent() {
                       <div
                         className={`w-2 h-2 rounded-full mt-1 ${
                           layer.uptime > 95
-                            ? "bg-green-400 animate-pulse"
+                            ? `bg-green-400 ${particleEffectsEnabled ? 'animate-pulse' : ''}`
                             : layer.uptime > 90
-                              ? "bg-yellow-400 animate-pulse"
-                              : "bg-red-400 animate-pulse"
+                              ? `bg-yellow-400 ${particleEffectsEnabled ? 'animate-pulse' : ''}`
+                              : `bg-red-400 ${particleEffectsEnabled ? 'animate-pulse' : ''}`
                         }`}
                         style={{
-                          animationDuration: `${2 / effectSpeed}s`,
+                          animationDuration: particleEffectsEnabled ? `${2 / effectSpeed}s` : undefined,
                         }}
                       />
                     </div>
@@ -810,9 +833,9 @@ function DashboardContent() {
                   }}
                 />
                 <div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"
+                  className={`absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent ${particleEffectsEnabled ? 'animate-pulse' : ''}`}
                   style={{
-                    animationDuration: `${2 / effectSpeed}s`,
+                    animationDuration: particleEffectsEnabled ? `${2 / effectSpeed}s` : undefined,
                   }}
                 />
               </div>
@@ -831,9 +854,9 @@ function DashboardContent() {
                   }}
                 />
                 <div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"
+                  className={`absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent ${particleEffectsEnabled ? 'animate-pulse' : ''}`}
                   style={{
-                    animationDuration: `${2 / effectSpeed}s`,
+                    animationDuration: particleEffectsEnabled ? `${2 / effectSpeed}s` : undefined,
                   }}
                 />
               </div>
@@ -852,9 +875,9 @@ function DashboardContent() {
                   }}
                 />
                 <div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"
+                  className={`absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent ${particleEffectsEnabled ? 'animate-pulse' : ''}`}
                   style={{
-                    animationDuration: `${2 / effectSpeed}s`,
+                    animationDuration: particleEffectsEnabled ? `${2 / effectSpeed}s` : undefined,
                   }}
                 />
               </div>
@@ -875,10 +898,10 @@ function DashboardContent() {
                 <div className="flex items-center space-x-3">
                   <div
                     className={`w-3 h-3 rounded-full ${
-                      agent.status === "active" ? "bg-green-400 animate-pulse" : "bg-slate-500"
+                      agent.status === "active" ? `bg-green-400 ${particleEffectsEnabled ? 'animate-pulse' : ''}` : "bg-slate-500"
                     }`}
                     style={{
-                      animationDuration: `${2 / effectSpeed}s`,
+                      animationDuration: particleEffectsEnabled ? `${2 / effectSpeed}s` : undefined,
                     }}
                   />
                   <div>
@@ -939,25 +962,32 @@ function DashboardContent() {
         </DraggableComponent>
       </div>
 
-      {/* Command Nexus - Special Standalone Area (positioned in center of screen) */}
-      {!nexusExpanded && (
-        <DraggableNexus
-          onPromptSubmit={handlePromptSubmit}
-          isVoiceActive={isVoiceActive}
-          onVoiceToggle={handleVoiceActivation}
-          initialPosition={nexusPosition}
-          isDocked={false}
-        />
-      )}
+      {/* Command Nexus - Floating version (only when not docked) */}
+      {!nexusExpanded && (() => {
+        const nexusItem = items["command-nexus"]
+        const isNexusDocked = nexusItem?.isDocked
+        return !isNexusDocked ? (
+          <Nexus
+            mode="draggable"
+            onPromptSubmit={handlePromptSubmit}
+            isVoiceActive={isVoiceActive}
+            onVoiceToggle={handleVoiceActivation}
+            initialPosition={nexusPosition}
+            isDocked={false}
+            soundVolume={soundVolume}
+            enableAudio={false}
+          />
+        ) : null
+      })()}
 
       {/* Voice Activation Feedback */}
       {isVoiceActive && (
         <div className="fixed top-1/2 left-8 transform -translate-y-1/2 z-50">
           <div className="backdrop-blur-md bg-red-500/20 border border-red-500/50 rounded-xl p-4 flex items-center space-x-3">
             <div
-              className="w-3 h-3 bg-red-400 rounded-full animate-pulse"
+              className={`w-3 h-3 bg-red-400 rounded-full ${particleEffectsEnabled ? 'animate-pulse' : ''}`}
               style={{
-                animationDuration: `${1 / effectSpeed}s`,
+                animationDuration: particleEffectsEnabled ? `${1 / effectSpeed}s` : undefined,
               }}
             />
             <span className="text-red-400 font-semibold">VOICE RECOGNITION ACTIVE</span>

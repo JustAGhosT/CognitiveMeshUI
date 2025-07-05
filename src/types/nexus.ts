@@ -1,7 +1,7 @@
 // types/nexus.ts
 
-import type React from "react"
 import type { LucideIcon } from "lucide-react"
+import type React from "react"
 
 // Represents an individual module in the Nexus
 export interface NexusModule {
@@ -24,7 +24,7 @@ export interface NexusModule {
 }
 
 // Defines the position and rotation of an icon in the Nexus
-eexport interface IconPosition {
+export interface IconPosition {
   /** Unique module ID (optional) */
   id?: string
   /** X offset or absolute X coordinate */
@@ -52,9 +52,16 @@ export interface AudioConfig {
     undock: string
     click: string
     snap?: string
-    expand: string
-    collapse: string
+    expand?: string
+    collapse?: string
   }
+}
+
+// Audio state for the audio system
+export interface AudioState {
+  isEnabled: boolean
+  volume: number
+  sounds: Record<string, HTMLAudioElement | null>
 }
 
 // Configuration for drag-preview grid and snapping
@@ -142,4 +149,16 @@ export interface NexusActions {
   startDrag: (target: "nexus" | "icon", id?: string) => void
   endDrag: () => void
   highlightDropZone: (zoneId: string | null) => void
+}
+
+// Drag state for enhanced mode
+export interface DragState {
+  isDragging: boolean
+  draggedItem: {
+    id: string
+    type: "nexus" | "icon"
+    data?: any
+  } | null
+  showPreviewGrid: boolean
+  activeDropZone: string | null
 }

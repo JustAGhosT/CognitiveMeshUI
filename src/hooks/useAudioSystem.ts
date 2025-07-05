@@ -1,8 +1,8 @@
 // src/hooks/useAudioSystem.ts
 
 "use client"
-import { useEffect, useRef, useState, useCallback } from "react"
 import type { AudioConfig, AudioState } from "@/types/nexus"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 // Combines pre-loaded audio files and Web Audio API synthesis
 export function useAudioSystem(configOrVolume: AudioConfig | number) {
@@ -74,7 +74,7 @@ export function useAudioSystem(configOrVolume: AudioConfig | number) {
 
   // Play function covers both types
   const playSound = useCallback(
-    (type: keyof AudioState["sounds"]) => {
+    (type: string) => {
       if (!audioState.isEnabled) return
 
       // first try HTMLAudioElement
@@ -105,7 +105,11 @@ export function useAudioSystem(configOrVolume: AudioConfig | number) {
   const setVolume = useCallback((vol: number) => {
     const v = Math.max(0, Math.min(1, vol))
     setAudioState((prev) => ({ ...prev, volume: v }))
-    Object.values(audioState.sounds).forEach((a) => a && (a.volume = v))
+    Object.values(audioState.sounds).forEach((a) => {
+      if (a && typeof a.volume === 'number') {
+        a.volume = v
+      }
+    })
   }, [audioState.sounds])
 
   const toggleAudio = useCallback(() => {

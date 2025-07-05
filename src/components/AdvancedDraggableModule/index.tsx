@@ -1,8 +1,8 @@
 "use client"
 
+import { Maximize2, MoreVertical, Move, Pin } from "lucide-react"
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
-import { Maximize2, Pin, Move, MoreVertical } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 
 interface DropZone {
   id: string
@@ -13,7 +13,7 @@ interface DropZone {
   label: string
 }
 
-interface AdvancedDraggableModuleProps {
+export interface AdvancedDraggableModuleProps {
   title: string
   children: React.ReactNode
   className?: string

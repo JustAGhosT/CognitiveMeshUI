@@ -1,9 +1,9 @@
 "use client"
-import type React from "react"
-import { useEffect, useRef, useCallback, useState } from "react"
+import DraggableComponent from "@/components/DraggableComponent"
 import { useDragDrop } from "@/contexts/DragDropContext"
 import { GripVertical, Maximize2, Minimize2, Package } from "lucide-react"
-import DraggableComponent from "@/components/DraggableComponent"
+import type React from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 interface DockZoneProps {
   id: string
@@ -47,7 +47,7 @@ export const DockZone: React.FC<DockZoneProps> = ({
   const [isResizing, setIsResizing] = useState(false)
   const [resizeHandle, setResizeHandle] = useState<string | null>(null)
   const [dimensions, setDimensions] = useState({ width: initialWidth, height: initialHeight })
-  const boundsUpdateTimeoutRef = useRef<NodeJS.Timeout>()
+  const boundsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const resizeStartRef = useRef({ x: 0, y: 0, width: 0, height: 0 })
 
   const isActive = activeDockZone === id
@@ -251,17 +251,45 @@ export const DockZone: React.FC<DockZoneProps> = ({
         <div className="grid gap-4 auto-fit-grid">
           {dockedItems
             .filter((item) => item && item.id) // Filter out invalid items
-            .map((item) => (
-              <DraggableComponent
-                key={item.id}
-                id={item.id}
-                title={formatItemTitle(item.id)}
-                type={item.type || "unknown"}
-                isDocked={true}
-              >
-                <div>Docked content for {formatItemTitle(item.id)}</div>
-              </DraggableComponent>
-            ))}
+            .map((item) => {
+              // Special handling for command nexus
+              if (item.id === "command-nexus") {
+                return (
+                  <div key={item.id} className="w-full">
+                    {/* Render the nexus content directly when docked */}
+                    <div className="backdrop-blur-md bg-slate-900/90 border-2 border-slate-500/30 rounded-xl shadow-xl p-4">
+                      <div className="text-center mb-4">
+                        <div className="text-xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
+                          COMMAND NEXUS
+                        </div>
+                        <div className="text-sm text-slate-400 mb-2">Central Command Interface</div>
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+                          <span className="text-xs text-cyan-400">Neural Link Active</span>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <button className="px-4 py-2 bg-slate-700/50 text-slate-300 hover:text-cyan-400 hover:bg-slate-600/50 rounded-lg transition-all duration-200 text-sm">
+                          Click to Expand
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+              
+              return (
+                <DraggableComponent
+                  key={item.id}
+                  id={item.id}
+                  title={formatItemTitle(item.id)}
+                  type={item.type || "unknown"}
+                  isDocked={true}
+                >
+                  <div>Docked content for {formatItemTitle(item.id)}</div>
+                </DraggableComponent>
+              )
+            })}
         </div>
 
         {children}
