@@ -175,3 +175,227 @@ Ctrl+Shift+P → "Extensions: Install Extensions"
 ---
 
 Happy coding! 🚀
+
+# Development Guide
+
+This guide covers development workflows for the Cognitive Mesh UI project, including the design system, component development, and documentation.
+
+## Design System Workflow
+
+### 1. Working with Design Tokens
+
+The project uses **Style Dictionary** to manage design tokens across multiple platforms.
+
+#### Token Structure
+```
+tokens/
+├── colors.json          # Color tokens (primary, secondary, semantic)
+├── typography.json      # Font families, sizes, weights, line heights
+├── spacing.json         # Spacing scale
+└── [new-tokens].json    # Additional token categories
+```
+
+#### Adding New Tokens
+1. **Edit token files** in the `tokens/` directory
+2. **Build tokens**: `npm run tokens`
+3. **Use in components**: Import generated CSS variables
+
+#### Example: Adding a new color token
+```json
+// tokens/colors.json
+{
+  "color": {
+    "cognitive": {
+      "accent": {
+        "new": { "value": "#FF6B9D" }
+      }
+    }
+  }
+}
+```
+
+After running `npm run tokens`, use in CSS:
+```css
+.my-component {
+  background: var(--color-cognitive-accent-new);
+}
+```
+
+### 2. Component Development
+
+#### Creating New Components
+1. **Create component directory**:
+   ```
+   src/components/MyComponent/
+   ├── MyComponent.tsx
+   ├── MyComponent.module.css
+   ├── index.ts
+   └── MyComponent.stories.tsx
+   ```
+
+2. **Use design tokens** in CSS:
+   ```css
+   @import '../../../build/css/_variables.css';
+   
+   .my-component {
+     font-family: var(--typography-font-family-primary);
+     padding: var(--spacing-md);
+     background: var(--color-cognitive-primary-neural);
+   }
+   ```
+
+3. **Add Storybook stories** for documentation and testing
+
+#### Component Guidelines
+- Use TypeScript for type safety
+- Implement proper accessibility (ARIA labels, keyboard navigation)
+- Follow the existing component patterns
+- Include hover, focus, and disabled states
+- Use CSS modules for styling
+
+### 3. Storybook Documentation
+
+#### Running Storybook
+```bash
+npm run storybook
+```
+Access at: http://localhost:6006
+
+#### Creating Stories
+```typescript
+// MyComponent.stories.tsx
+import type { Meta, StoryObj } from '@storybook/react';
+import { MyComponent } from './MyComponent';
+
+const meta: Meta<typeof MyComponent> = {
+  title: 'Design System/MyComponent',
+  component: MyComponent,
+  parameters: {
+    layout: 'centered',
+  },
+  argTypes: {
+    variant: {
+      control: { type: 'select' },
+      options: ['primary', 'secondary'],
+    },
+  },
+  tags: ['autodocs'],
+};
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
+  args: {
+    variant: 'primary',
+    children: 'Primary Button',
+  },
+};
+```
+
+#### Story Best Practices
+- Use descriptive story names
+- Include all component variants
+- Add interactive controls for props
+- Document component usage with descriptions
+- Include accessibility information
+
+### 4. Development Commands
+
+#### Essential Commands
+```bash
+# Development
+npm run dev              # Start Next.js dev server
+npm run storybook        # Start Storybook
+npm run tokens           # Build design tokens
+
+# Building
+npm run build            # Build Next.js app
+npm run build-storybook  # Build static Storybook
+
+# Quality
+npm run lint             # Run ESLint
+```
+
+#### Token Development Workflow
+1. Edit tokens in `tokens/` directory
+2. Run `npm run tokens` to regenerate
+3. Check generated files in `build/` directory
+4. Update components to use new tokens
+5. Test in Storybook
+
+### 5. File Structure Guidelines
+
+#### Component Organization
+```
+src/components/
+├── ComponentName/
+│   ├── ComponentName.tsx      # Main component
+│   ├── ComponentName.module.css # Styles
+│   ├── index.ts               # Exports
+│   └── ComponentName.stories.tsx # Documentation
+```
+
+#### Token Organization
+```
+tokens/
+├── colors.json               # All color tokens
+├── typography.json           # All typography tokens
+├── spacing.json              # All spacing tokens
+└── [category].json           # Other token categories
+```
+
+### 6. Design System Principles
+
+#### Token Naming Convention
+- Use kebab-case for CSS variables
+- Group related tokens hierarchically
+- Use semantic names over visual descriptions
+- Include platform-specific variants when needed
+
+#### Component Design Principles
+- **Consistency**: Use design tokens for all styling
+- **Accessibility**: Implement proper ARIA and keyboard support
+- **Responsive**: Design for all screen sizes
+- **Performance**: Optimize for fast rendering
+- **Maintainability**: Write clean, documented code
+
+### 7. Testing Strategy
+
+#### Component Testing
+- Use Storybook for visual testing
+- Test all variants and states
+- Verify accessibility with screen readers
+- Test responsive behavior
+- Validate design token usage
+
+#### Token Testing
+- Verify token generation works correctly
+- Test token usage across components
+- Validate CSS custom properties
+- Check cross-platform compatibility
+
+### 8. Troubleshooting
+
+#### Common Issues
+
+**Tokens not updating in components**
+- Run `npm run tokens` to regenerate
+- Check import paths in CSS files
+- Verify token file syntax
+
+**Storybook not loading**
+- Check for TypeScript errors
+- Verify component imports
+- Restart Storybook server
+
+**Style conflicts**
+- Use CSS modules to avoid conflicts
+- Check CSS specificity
+- Verify token variable names
+
+#### Getting Help
+- Check the generated token files in `build/`
+- Review Storybook documentation
+- Test components in isolation
+- Use browser dev tools to inspect styles

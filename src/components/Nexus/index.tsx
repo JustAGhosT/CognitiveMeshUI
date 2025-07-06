@@ -1,10 +1,10 @@
 "use client"
-import type React from "react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import React, { useCallback, useEffect, useRef, useState } from "react"
 
 import { useDragDrop } from "@/contexts/DragDropContext"
 import { useAudioSystem } from "@/hooks/useAudioSystem"
-import type { DragState, NexusModule, NexusState } from "@/types/nexus"
+import { useNexusDrag } from "@/hooks/useNexusDrag"
+import type { NexusModule, NexusState } from "@/types/nexus"
 import {
     Activity,
     BarChart3,
@@ -56,6 +56,8 @@ export interface NexusProps {
   onCollapse?: () => void
   onPin?: () => void
   onUnpin?: () => void
+  onDragStart?: () => void
+  onDragEnd?: () => void
 }
 
 export default function Nexus({
@@ -87,6 +89,8 @@ export default function Nexus({
   onCollapse,
   onPin,
   onUnpin,
+  onDragStart,
+  onDragEnd,
 }: NexusProps) {
   // Core state
   const [prompt, setPrompt] = useState("")
@@ -124,13 +128,8 @@ export default function Nexus({
     size: { width: 400, height: 120 },
   })
 
-  // Drag state for enhanced mode
-  const [dragState, setDragState] = useState<DragState>({
-    isDragging: false,
-    draggedItem: null,
-    showPreviewGrid: false,
-    activeDropZone: null,
-  })
+  // Replace drag state with useNexusDrag
+  const { isDragging: useNexusDragIsDragging, start: handleDragStart, end: handleDragEnd } = useNexusDrag({ onDragStart, onDragEnd })
 
   // Nexus identification
   const nexusId = "command-nexus"
@@ -364,23 +363,19 @@ export default function Nexus({
   // Enhanced mode drag handlers
   const handleDragStart = (type: "nexus" | "icon", data?: any) => {
     if (mode !== "enhanced") return
-    setDragState({
+    handleDragStart({
       isDragging: true,
       draggedItem: { id: `${type}-${Date.now()}`, type, data },
       showPreviewGrid: true,
       activeDropZone: null,
     })
     if (enableAudio) playSound("click")
+    if (onDragStart) onDragStart()
   }
 
   const handleDragEnd = () => {
     if (mode !== "enhanced") return
-    setDragState({
-      isDragging: false,
-      draggedItem: null,
-      showPreviewGrid: false,
-      activeDropZone: null,
-    })
+    handleDragEnd()
     if (enableAudio) playSound("snap")
   }
 
@@ -774,10 +769,10 @@ export default function Nexus({
       </div>
 
       {/* Enhanced mode drag preview */}
-      {mode === "enhanced" && showDragPreview && dragState.showPreviewGrid && (
+      {mode === "enhanced" && showDragPreview && useNexusDragIsDragging && (
         <DragPreview
-          isVisible={dragState.isDragging}
-          draggedItem={dragState.draggedItem}
+          isVisible={useNexusDragIsDragging}
+          draggedItem={useNexusDragIsDragging.draggedItem}
           onDragEnd={handleDragEnd}
           onDropZoneEnter={() => {}}
           onDropZoneLeave={() => {}}

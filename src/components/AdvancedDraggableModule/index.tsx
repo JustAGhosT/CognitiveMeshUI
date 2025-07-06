@@ -1,8 +1,7 @@
 "use client"
 
 import { Maximize2, MoreVertical, Move, Pin } from "lucide-react"
-import type React from "react"
-import { useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 
 interface DropZone {
   id: string

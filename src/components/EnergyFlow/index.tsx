@@ -1,5 +1,8 @@
 "use client"
 
+import React from 'react';
+import styles from './energy-flow.module.css';
+
 interface EnergyFlowProps {
   direction?: "horizontal" | "vertical" | "diagonal"
   intensity?: "low" | "medium" | "high"
@@ -51,7 +54,7 @@ export default function EnergyFlow({
   }
 
   return (
-    <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
+    <div className={`${styles["energy-flow"]} ${className}`}>
       <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
         <defs>
           <linearGradient id={`energy-gradient-${color}`} gradientUnits="userSpaceOnUse">
@@ -100,5 +103,6 @@ export default function EnergyFlow({
   )
 }
 
-export { EnergyFlow }
-export type { EnergyFlowProps }
+export { EnergyFlow };
+export type { EnergyFlowProps };
+

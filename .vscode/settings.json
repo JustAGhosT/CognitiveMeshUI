@@ -89,5 +89,15 @@
   "git.enableSmartCommit": true,
   // Terminal settings
   "terminal.integrated.defaultProfile.linux": "bash",
-  "terminal.integrated.fontSize": 14
-}
+  "terminal.integrated.fontSize": 14,
+  "workbench.colorTheme": "Cognitive Mesh - Neural Space Opera",
+  "workbench.preferredDarkColorTheme": "Cognitive Mesh - Neural Space Opera",
+  "workbench.preferredLightColorTheme": "Default Light+", // fallback
+  "workbench.colorCustomizations": {},
+  "editor.tokenColorCustomizations": {
+    "[Cognitive Mesh - Neural Space Opera]": {
+      "textMateRules": [
+        // you can copy your tokenColors array here if needed
+      ]
+    }
+  }

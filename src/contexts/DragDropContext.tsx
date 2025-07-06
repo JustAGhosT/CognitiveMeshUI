@@ -1,6 +1,5 @@
 "use client"
-import type React from "react"
-import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react"
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 
 export interface DragItem {
   id: string
@@ -50,6 +49,11 @@ interface DragDropContextType {
   toggleSnapToGrid: () => void
   toggleShowGrid: () => void
   getDockedItemsForZone: (zoneId: string) => DragItem[]
+  dockZonePositions: { [key: string]: { x: number, y: number } }
+  dockZoneStack: string[]
+  updateDockZonePosition: (zoneId: string, x: number, y: number) => void
+  getDockZoneStack: () => string[]
+  insertDockZoneIntoStack: (zoneId: string, index: number) => void
 }
 
 const DragDropContext = createContext<DragDropContextType | null>(null)
@@ -73,6 +77,8 @@ export const DragDropProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [globalSize, setGlobalSize] = useState<"small" | "medium" | "large" | "x-large">("medium")
   const [snapToGrid, setSnapToGrid] = useState(true)
   const [showGrid, setShowGrid] = useState(false)
+  const [dockZonePositions, setDockZonePositions] = useState<{ [key: string]: { x: number, y: number } }>({})
+  const [dockZoneStack, setDockZoneStack] = useState<string[]>([])
 
   const dockZonesRef = useRef<{ [key: string]: DockZone }>({})
   const itemsRef = useRef<{ [key: string]: DragItem }>({})
@@ -116,6 +122,7 @@ export const DragDropProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let foundZone: string | null = null
     let bestZone: string | null = null
     let maxOverlap = 0
+    let minCenterDist = Infinity
     const zones = dockZonesRef.current
 
     Object.entries(zones).forEach(([zoneId, zone]) => {
@@ -135,6 +142,13 @@ export const DragDropProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const itemArea = itemBounds.width * itemBounds.height
       const overlapPercentage = overlapArea / itemArea
 
+      // Calculate center-to-center distance
+      const itemCenter = { x: position.x + itemBounds.width / 2, y: position.y + itemBounds.height / 2 }
+      const zoneCenter = { x: zone.bounds.x + zone.bounds.width / 2, y: zone.bounds.y + zone.bounds.height / 2 }
+      const centerDist = Math.sqrt(
+        Math.pow(itemCenter.x - zoneCenter.x, 2) + Math.pow(itemCenter.y - zoneCenter.y, 2)
+      )
+
       if (
         overlapPercentage > 0.3 && // At least 30% overlap
         (!zone.allowedSizes || zone.allowedSizes.includes(item.size)) &&
@@ -143,12 +157,17 @@ export const DragDropProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (overlapArea > maxOverlap) {
           maxOverlap = overlapArea
           bestZone = zoneId
+          minCenterDist = centerDist
+        } else if (overlapArea === maxOverlap && centerDist < minCenterDist) {
+          // Tiebreaker: closest by center
+          bestZone = zoneId
+          minCenterDist = centerDist
         }
         foundZone = zoneId
       }
     })
 
-    // Use the zone with the most overlap
+    // Use the zone with the most overlap, tiebreak by center distance
     const activeZone = bestZone || foundZone
     setActiveDockZone(activeZone)
     return activeZone
@@ -520,6 +539,23 @@ export const DragDropProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [dockZones, items],
   )
 
+  // Update a DockZone's position
+  const updateDockZonePosition = useCallback((zoneId: string, x: number, y: number) => {
+    setDockZonePositions((prev) => ({ ...prev, [zoneId]: { x, y } }))
+  }, [])
+
+  // Get current stack order
+  const getDockZoneStack = useCallback(() => dockZoneStack, [dockZoneStack])
+
+  // Insert a DockZone into the stack at a given index
+  const insertDockZoneIntoStack = useCallback((zoneId: string, index: number) => {
+    setDockZoneStack((prev) => {
+      const filtered = prev.filter((id) => id !== zoneId)
+      filtered.splice(index, 0, zoneId)
+      return filtered
+    })
+  }, [])
+
   const value: DragDropContextType = {
     draggedItem,
     items,
@@ -545,6 +581,11 @@ export const DragDropProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     toggleSnapToGrid,
     toggleShowGrid,
     getDockedItemsForZone,
+    dockZonePositions,
+    dockZoneStack,
+    updateDockZonePosition,
+    getDockZoneStack,
+    insertDockZoneIntoStack,
   }
 
   return <DragDropContext.Provider value={value}>{children}</DragDropContext.Provider>

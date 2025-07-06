@@ -1,8 +1,7 @@
 "use client"
-import type React from "react"
-import { useEffect, useRef, useState } from "react"
-import { useDragDrop, getSizeConfig } from "@/contexts/DragDropContext"
-import { GripVertical, Pin, PinOff, MoreVertical, Minimize2, Square, Maximize2, Monitor } from "lucide-react"
+import { getSizeConfig, useDragDrop } from "@/contexts/DragDropContext"
+import { GripVertical, Maximize2, Minimize2, Monitor, MoreVertical, Pin, PinOff, Square } from "lucide-react"
+import React, { useEffect, useRef, useState } from "react"
 
 interface DraggableComponentProps {
   id: string
@@ -50,6 +49,7 @@ export const DraggableComponent: React.FC<DraggableComponentProps> = ({
   const [showControls, setShowControls] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [isDragHovered, setIsDragHovered] = useState(false)
+  const [isFloating, setIsFloating] = useState(false)
 
   const item = items[id]
   const effectiveSize = globalSize || item?.size || initialSize
@@ -86,18 +86,44 @@ export const DraggableComponent: React.FC<DraggableComponentProps> = ({
   }
 
   const handleDockToggle = () => {
-    if (item?.isDocked) {
+    if (isDocked) {
       undockItem(id)
+      setIsFloating(true)
     } else {
-      // If not docked, try to dock to the first available zone
-      const availableZones = Object.entries(dockZones).filter(
-        ([zoneId, zone]) =>
-          (!zone.maxItems || zone.items.length < zone.maxItems) &&
-          (!zone.allowedSizes || zone.allowedSizes.includes(effectiveSize)),
-      )
-
-      if (availableZones.length > 0) {
-        dockItem(id, availableZones[0][0])
+      // Find the dock zone with the most overlap
+      let bestZone = null
+      let maxOverlap = 0
+      const itemBounds = getSizeConfig(effectiveSize)
+      const itemRect = {
+        x: item.position.x,
+        y: item.position.y,
+        width: itemBounds.width,
+        height: itemBounds.height,
+      }
+      Object.entries(dockZones).forEach(([zoneId, zone]) => {
+        const overlapLeft = Math.max(itemRect.x, zone.bounds.x)
+        const overlapTop = Math.max(itemRect.y, zone.bounds.y)
+        const overlapRight = Math.min(itemRect.x + itemRect.width, zone.bounds.x + zone.bounds.width)
+        const overlapBottom = Math.min(itemRect.y + itemRect.height, zone.bounds.y + zone.bounds.height)
+        const overlapWidth = Math.max(0, overlapRight - overlapLeft)
+        const overlapHeight = Math.max(0, overlapBottom - overlapTop)
+        const overlapArea = overlapWidth * overlapHeight
+        const itemArea = itemRect.width * itemRect.height
+        const overlapPercentage = overlapArea / itemArea
+        if (
+          overlapPercentage > 0.3 &&
+          (!zone.allowedSizes || zone.allowedSizes.includes(effectiveSize)) &&
+          (!zone.maxItems || zone.items.length < zone.maxItems)
+        ) {
+          if (overlapArea > maxOverlap) {
+            maxOverlap = overlapArea
+            bestZone = zoneId
+          }
+        }
+      })
+      if (bestZone) {
+        dockItem(id, bestZone)
+        setIsFloating(false)
       }
     }
     setShowControls(false)
@@ -108,6 +134,35 @@ export const DraggableComponent: React.FC<DraggableComponentProps> = ({
   }
 
   if (!item) return null
+  if (isBeingDragged) {
+    // Glassmorphism drag preview
+    return (
+      <div
+        className={`
+          fixed pointer-events-none z-50 glassmorphism-drag-preview
+          border-2 border-cyan-300/60 rounded-xl
+          animate-drag-glow
+        `}
+        style={{
+          left: item.position.x,
+          top: item.position.y,
+          width: sizeConfig.width,
+          height: sizeConfig.height,
+          backdropFilter: "blur(18px)",
+          background: "rgba(255,255,255,0.13)",
+          border: "2px solid rgba(0,255,255,0.25)",
+          boxShadow: "0 12px 40px rgba(0,255,255,0.18), 0 2px 16px rgba(0,0,0,0.18)",
+          transform: "scale(1.07)",
+          transition: "box-shadow 0.2s, border-color 0.2s",
+        }}
+      >
+        {/* Optionally, show a minimal header or icon as a hint */}
+        <div className="flex items-center justify-center h-full opacity-70">
+          <span className="text-cyan-300 font-bold text-lg">{title}</span>
+        </div>
+      </div>
+    )
+  }
 
   const dragTransform = isBeingDragged ? "scale(1.05) rotate(1deg)" : ""
   const hoverTransform = isHovered && !isBeingDragged ? "scale(1.02)" : ""
@@ -135,10 +190,11 @@ export const DraggableComponent: React.FC<DraggableComponentProps> = ({
           transition-all duration-300 group select-none
           ${isDocked ? "relative w-full border-slate-500/30" : "fixed border-cyan-500/30"}
           ${isBeingDragged ? "shadow-cyan-500/50 border-cyan-500/70 z-50" : ""}
-          ${isInActiveDockZone ? "border-green-500/70 shadow-green-500/30 bg-green-900/20" : ""}
+          ${isInActiveDockZone ? "border-4 border-cyan-300/80 shadow-cyan-300/40 bg-cyan-200/10 animate-dock-glow" : ""}
           ${isDragging && !isBeingDragged ? "pointer-events-none opacity-50" : ""}
           ${!isDocked ? "cursor-move" : ""}
           ${isDragHovered ? "ring-2 ring-cyan-400/50" : ""}
+          ${isFloating && !isDocked ? "glassmorphism-floating" : ""}
           ${className}
         `}
         style={{
@@ -147,8 +203,12 @@ export const DraggableComponent: React.FC<DraggableComponentProps> = ({
           zIndex: item.zIndex,
           width: isDocked ? "auto" : sizeConfig.width,
           height: isDocked ? "auto" : sizeConfig.height,
-          transform: `${dragTransform} ${hoverTransform}`,
+          transform: `${dragTransform} ${hoverTransform} ${isFloating && !isDocked ? "scale(1.05)" : ""}`,
           cursor: !isDocked ? (isBeingDragged ? "grabbing" : "grab") : "default",
+          backdropFilter: isFloating && !isDocked ? "blur(16px)" : undefined,
+          background: isFloating && !isDocked ? "rgba(255,255,255,0.08)" : undefined,
+          border: isFloating && !isDocked ? "1.5px solid rgba(255,255,255,0.18)" : undefined,
+          boxShadow: isFloating && !isDocked ? "0 8px 32px rgba(0,0,0,0.25), 0 1.5px 8px rgba(0,255,255,0.12)" : undefined,
         }}
         onMouseEnter={() => {
           setIsHovered(true)
@@ -165,18 +225,22 @@ export const DraggableComponent: React.FC<DraggableComponentProps> = ({
         <div
           className={`
     flex items-center justify-between px-3 py-1.5 border-b border-slate-700/50 
-    ${isDocked ? "cursor-default" : "cursor-grab hover:cursor-grab active:cursor-grabbing"}
     bg-gradient-to-r from-slate-800/50 to-slate-700/30
     ${isBeingDragged ? "bg-gradient-to-r from-cyan-800/30 to-blue-800/30" : ""}
-    ${isDragHovered && !isDocked ? "bg-gradient-to-r from-cyan-800/20 to-blue-800/20 cursor-grab" : ""}
+    ${isDragHovered && !isDocked ? "bg-gradient-to-r from-cyan-800/20 to-blue-800/20" : ""}
     transition-all duration-200
   `}
-          onMouseDown={handleMouseDown}
-          style={{ cursor: !isDocked ? "grab" : "default" }}
         >
           <div className="flex items-center space-x-2">
-            {/* Enhanced Drag Handle */}
-            <div className="flex items-center space-x-1 p-1 rounded transition-all duration-200 hover:bg-cyan-500/20">
+            {/* Enhanced Drag Handle - Only this area should be draggable */}
+            <div 
+              className={`
+                flex items-center space-x-1 p-1 rounded transition-all duration-200 hover:bg-cyan-500/20
+                ${isDocked ? "cursor-default" : "cursor-grab hover:cursor-grab active:cursor-grabbing"}
+              `}
+              onMouseDown={!isDocked ? handleMouseDown : undefined}
+              style={{ cursor: !isDocked ? "grab" : "default" }}
+            >
               <GripVertical
                 size={12}
                 className={`transition-colors ${
@@ -185,21 +249,22 @@ export const DraggableComponent: React.FC<DraggableComponentProps> = ({
               />
             </div>
 
-            {/* Redesigned Dock/Undock Toggle Button */}
+            {/* Redesigned Dock/Undock Toggle Button - Separate from drag handle */}
             <button
               onClick={(e) => {
-                e.stopPropagation()
-                handleDockToggle()
+                e.stopPropagation();
+                handleDockToggle();
               }}
               className={`
-      p-1.5 rounded-md transition-all duration-300 cursor-pointer
-      ${
-        isDocked
-          ? "bg-slate-700/50 text-cyan-400 hover:bg-slate-600/50 hover:text-cyan-300"
-          : "bg-slate-800/30 text-slate-500 hover:bg-slate-700/50 hover:text-slate-400"
-      }
-    `}
+                p-1.5 rounded-md transition-all duration-300 cursor-pointer
+                ${isDocked
+                  ? "bg-slate-700/50 text-cyan-400 hover:bg-slate-600/50 hover:text-cyan-300"
+                  : "bg-slate-800/30 text-slate-500 hover:bg-slate-700/50 hover:text-slate-400"}
+              `}
               title={isDocked ? "Component is docked - Click to undock" : "Click to dock component"}
+              // Always enabled, never disabled
+              tabIndex={0}
+              aria-disabled="false"
             >
               {isDocked ? <Pin size={12} className="text-cyan-400" /> : <PinOff size={12} />}
             </button>

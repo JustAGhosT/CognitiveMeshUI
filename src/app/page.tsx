@@ -1,62 +1,115 @@
 "use client"
-import type React from "react"
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 
-import { Nexus } from "@/components"
-import DockZone from "@/components/DockZone"
+import { BackgroundEffects, BridgeHeader, DashboardLayout, LoadingSpinner, Nexus } from "@/components"
 import DraggableComponent from "@/components/DraggableComponent"
-import EnergyFlow from "@/components/EnergyFlow"
+import VoiceFeedback from "@/components/VoiceFeedback"
 import { DragDropProvider, useDragDrop } from "@/contexts/DragDropContext"
+import { useDashboardData } from "@/hooks/useDashboardData"
 import {
-    Activity,
-    BarChart3,
-    Brain,
-    CheckCircle,
-    Cpu,
-    Database,
-    Eye,
-    Gauge,
-    Grid3X3,
-    Layers,
-    Lock,
-    Maximize,
-    Mic,
-    MicOff,
-    Minimize,
-    Monitor,
-    Move,
-    RotateCcw,
-    Server,
-    Shield,
-    Sparkles,
-    Square,
-    TrendingUp,
-    Users,
-    Volume2,
-    Zap,
+  Activity,
+  BarChart3,
+  Brain,
+  CheckCircle,
+  Cpu,
+  Eye,
+  Maximize,
+  Minimize,
+  Monitor,
+  Shield,
+  Square,
+  TrendingUp,
+  Users
 } from "lucide-react"
 
-function DashboardContent() {
-  const { globalSize, setGlobalSize, snapToGrid, showGrid, toggleSnapToGrid, toggleShowGrid, dockItem, items } = useDragDrop()
+import DraggableModuleContent from "@/components/DraggableModuleContent"
 
-  const [activeLayer, setActiveLayer] = useState("foundation")
-  const [isVoiceActive, setIsVoiceActive] = useState(false)
-  const [layoutMode, setLayoutMode] = useState<"radial" | "grid" | "freeform">("radial")
-  const [voiceFeedback, setVoiceFeedback] = useState("")
-  const [nexusExpanded, setNexusExpanded] = useState(false)
-  const [nexusPosition, setNexusPosition] = useState({ x: 400, y: 300 }) // Default fallback
+function DashboardContent() {
+  const { globalSize, setGlobalSize, snapToGrid, showGrid, toggleSnapToGrid, toggleShowGrid, dockItem, items, dockZones } = useDragDrop();
+
+  // Fetch dashboard data using API service
+  const { data, loading, error, refetch } = useDashboardData();
+
+  const [activeLayer, setActiveLayer] = useState("foundation");
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<"radial" | "grid" | "freeform">("radial");
+  const [voiceFeedback, setVoiceFeedback] = useState("");
+  const [nexusExpanded, setNexusExpanded] = useState(false);
+  const [nexusPosition, setNexusPosition] = useState({ x: 400, y: 300 }); // Default fallback
 
   // New state for bridge controls
-  const [effectSpeed, setEffectSpeed] = useState(1.0) // 0.1 to 3.0
-  const [soundVolume, setSoundVolume] = useState(0.7) // 0.0 to 1.0
+  const [effectSpeed] = useState(1.0); // 0.1 to 3.0
+  const [soundVolume] = useState(0.7); // 0.0 to 1.0
   const [particleEffectsEnabled, setParticleEffectsEnabled] = useState(() => {
-    // Initialize from localStorage if available, default to false
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('cognitive-mesh-particle-effects')
-      return saved ? JSON.parse(saved) : false
+      const saved = localStorage.getItem('cognitive-mesh-particle-effects');
+      return saved ? JSON.parse(saved) : false;
     }
-    return false
-  })
+    return false;
+  });
+
+  // Drag handle style state
+  const [dockHandleStyle, setDockHandleStyle] = useState<"grip" | "anchor" | "titlebar" | "ring" | "invisible">("grip");
+
+  const [nexusAutoDockEnabled, setNexusAutoDockEnabled] = useState(true);
+
+  // Icon mapping for API data
+  const iconMap: Record<string, React.ComponentType<any>> = {
+    Shield,
+    Brain,
+    Eye,
+    Users,
+    BarChart3,
+    Cpu,
+    CheckCircle,
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner size="large" />
+          <p className="mt-4 text-cyan-400">Loading Cognitive Mesh Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="text-red-400 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold mb-2">Connection Error</h2>
+          <p className="text-slate-400 mb-4">{error}</p>
+          <button
+            onClick={refetch}
+            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Ensure data is available
+  if (!data) {
+    return null;
+  }
+
+  // Transform API data to include icon components
+  const layers = data.layers.map(layer => ({
+    ...layer,
+    icon: iconMap[layer.icon] || Shield,
+  }));
+
+  const metrics = data.metrics.map(metric => ({
+    ...metric,
+    icon: iconMap[metric.icon] || Activity,
+  }));
 
   // Calculate center position for Command Nexus
   useEffect(() => {
@@ -87,140 +140,54 @@ function DashboardContent() {
     return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  const layers = [
-    {
-      id: "foundation",
-      name: "Foundation Layer",
-      icon: Shield,
-      color: "cyan",
-      uptime: 99.9,
-      description: "Core infrastructure, security, and data persistence",
-    },
-    {
-      id: "reasoning",
-      name: "Reasoning Layer",
-      icon: Brain,
-      color: "blue",
-      uptime: 94.2,
-      description: "Cognitive engines for analytical and creative reasoning",
-    },
-    {
-      id: "metacognitive",
-      name: "Metacognitive Layer",
-      icon: Eye,
-      color: "purple",
-      uptime: 87.5,
-      description: "Self-monitoring and continuous learning systems",
-    },
-    {
-      id: "agency",
-      name: "Agency Layer",
-      icon: Users,
-      color: "green",
-      uptime: 91.8,
-      description: "Autonomous agents executing tasks and workflows",
-    },
-    {
-      id: "business",
-      name: "Business Applications",
-      icon: BarChart3,
-      color: "orange",
-      uptime: 96.3,
-      description: "Business-specific APIs and application logic",
-    },
-  ]
-
-  const metrics = [
-    {
-      id: "active-agents",
-      label: "Active Agents",
-      value: "247",
-      change: "+12%",
-      status: "up",
-      energy: 0.8,
-      icon: Users,
-    },
-    {
-      id: "processing-rate",
-      label: "Processing Rate",
-      value: "1.2M/s",
-      change: "+5.3%",
-      status: "up",
-      energy: 0.9,
-      icon: Cpu,
-    },
-    {
-      id: "security-score",
-      label: "Security Score",
-      value: "99.8%",
-      change: "0%",
-      status: "stable",
-      energy: 0.6,
-      icon: Shield,
-    },
-    {
-      id: "compliance",
-      label: "Compliance",
-      value: "100%",
-      change: "0%",
-      status: "stable",
-      energy: 0.5,
-      icon: CheckCircle,
-    },
-  ]
-
-  const agents = [
-    { name: "Threat Intelligence Agent", status: "active", tasks: 12, energy: 0.9 },
-    { name: "Data Processing Agent", status: "active", tasks: 8, energy: 0.7 },
-    { name: "Compliance Monitor", status: "active", tasks: 3, energy: 0.4 },
-    { name: "Performance Optimizer", status: "idle", tasks: 0, energy: 0.1 },
-    { name: "Security Auditor", status: "active", tasks: 5, energy: 0.6 },
-  ]
-
-  const activities = [
-    { time: "2 min ago", event: "Security scan completed", type: "security" },
-    { time: "5 min ago", event: "New agent deployed", type: "deployment" },
-    { time: "12 min ago", event: "Performance optimization applied", type: "optimization" },
-    { time: "18 min ago", event: "Compliance check passed", type: "compliance" },
-    { time: "25 min ago", event: "Data backup completed", type: "backup" },
-  ]
-
-  // Initialize all components in docked positions (including Command Nexus)
+  // Robustly dock all items (including Nexus) when both items and zones are registered
   useEffect(() => {
-    const initializeDockedItems = () => {
-      // Dock Command Nexus to central dock zone
-      setTimeout(() => {
-        dockItem("command-nexus", "central-nexus-dock", 0)
-      }, 100)
+    // Wait until all items and all dock zones are registered before attempting to dock
+    const allZones = [
+      "central-nexus-dock",
+      "metrics-dock",
+      "main-modules-dock",
+      "sidebar-dock",
+      "bottom-dock",
+    ];
+    const allZonesRegistered = allZones.every((zone) => dockZones && dockZones[zone]);
+    const allMetricsRegistered = metrics.every((metric) => items[metric.id]);
+    if (!allZonesRegistered || !items["command-nexus"] || !allMetricsRegistered) return;
 
-      // Dock metrics to metrics dashboard
-      metrics.forEach((metric, index) => {
-        setTimeout(() => {
-          dockItem(metric.id, "metrics-dock", index)
-        }, 200 + (100 * index))
-      })
-
-      // Dock main modules
-      setTimeout(() => {
-        dockItem("architecture", "main-modules-dock", 0)
-      }, 600)
-
-      // Dock sidebar tools
-      setTimeout(() => {
-        dockItem("security", "sidebar-dock", 0)
-        dockItem("resources", "sidebar-dock", 1)
-      }, 700)
-
-      // Dock activity modules
-      setTimeout(() => {
-        dockItem("agents", "bottom-dock", 0)
-        dockItem("activity", "bottom-dock", 1)
-      }, 800)
+    // Nexus
+    if (
+      nexusAutoDockEnabled &&
+      !items["command-nexus"].isDocked
+    ) {
+      dockItem("command-nexus", "central-nexus-dock", 0);
     }
-
-    // Delay initialization to ensure zones are registered
-    setTimeout(initializeDockedItems, 1000)
-  }, [dockItem])
+    // Metrics
+    metrics.forEach((metric, index) => {
+      if (!items[metric.id].isDocked) {
+        dockItem(metric.id, "metrics-dock", index);
+      }
+    });
+    // Architecture
+    if (items["architecture"] && !items["architecture"].isDocked) {
+      dockItem("architecture", "main-modules-dock", 0);
+    }
+    // Security
+    if (items["security"] && !items["security"].isDocked) {
+      dockItem("security", "sidebar-dock", 0);
+    }
+    // Resources
+    if (items["resources"] && !items["resources"].isDocked) {
+      dockItem("resources", "sidebar-dock", 1);
+    }
+    // Agents
+    if (items["agents"] && !items["agents"].isDocked) {
+      dockItem("agents", "bottom-dock", 0);
+    }
+    // Activity
+    if (items["activity"] && !items["activity"].isDocked) {
+      dockItem("activity", "bottom-dock", 1);
+    }
+  }, [nexusAutoDockEnabled, items, dockZones, dockItem, metrics, data.agents, data.activities]);
 
   // Apply effect speed to CSS custom properties
   useEffect(() => {
@@ -254,23 +221,31 @@ function DashboardContent() {
     }
   }
 
+  // Handle Nexus toggle (undock/dock)
   const handleNexusToggle = () => {
-    setNexusExpanded(!nexusExpanded)
-  }
+    if (nexusExpanded) {
+      // User is undocking Nexus, disable auto-dock
+      setNexusAutoDockEnabled(false);
+    } else {
+      // User is re-docking via toggle, allow auto-dock again
+      setNexusAutoDockEnabled(true);
+    }
+    setNexusExpanded(!nexusExpanded);
+  };
 
   // Size control functions
   const cycleSizeUp = () => {
     const sizes: ("small" | "medium" | "large" | "x-large")[] = ["small", "medium", "large", "x-large"]
-    const currentIndex = sizes.indexOf(globalSize as any)
+    const currentIndex = sizes.indexOf(globalSize as "small" | "medium" | "large" | "x-large")
     const nextIndex = currentIndex < sizes.length - 1 ? currentIndex + 1 : 0
-    setGlobalSize(sizes[nextIndex] as any)
+    setGlobalSize(sizes[nextIndex] as "small" | "medium" | "large" | "x-large")
   }
 
   const cycleSizeDown = () => {
     const sizes: ("small" | "medium" | "large" | "x-large")[] = ["small", "medium", "large", "x-large"]
-    const currentIndex = sizes.indexOf(globalSize as any)
+    const currentIndex = sizes.indexOf(globalSize as "small" | "medium" | "large" | "x-large")
     const nextIndex = currentIndex > 0 ? currentIndex - 1 : sizes.length - 1
-    setGlobalSize(sizes[nextIndex] as any)
+    setGlobalSize(sizes[nextIndex] as "small" | "medium" | "large" | "x-large")
   }
 
   const getSizeIcon = () => {
@@ -314,48 +289,7 @@ function DashboardContent() {
       }
     >
       {/* Enhanced Animated Starfield Background */}
-      {particleEffectsEnabled && (
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-900/20 via-transparent to-transparent" />
-          {[...Array(100)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${(2 + Math.random() * 3) / effectSpeed}s`,
-              }}
-            />
-          ))}
-          {/* Add some brighter stars */}
-          {[...Array(20)].map((_, i) => (
-            <div
-              key={`bright-${i}`}
-              className="absolute w-2 h-2 bg-cyan-400 rounded-full animate-pulse"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 5}s`,
-                animationDuration: `${(3 + Math.random() * 4) / effectSpeed}s`,
-                opacity: 0.6,
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Enhanced Energy Flow Network */}
-      {particleEffectsEnabled && (
-        <div className="absolute inset-0 pointer-events-none">
-          <EnergyFlow direction="horizontal" intensity="medium" color="cyan" className="top-1/4 left-0 w-full h-px" />
-          <EnergyFlow direction="vertical" intensity="low" color="blue" className="left-1/4 top-0 w-px h-full" />
-          <EnergyFlow direction="diagonal" intensity="high" color="purple" className="top-1/2 left-1/2 w-1/2 h-1/2" />
-          <EnergyFlow direction="horizontal" intensity="low" color="green" className="bottom-1/4 left-0 w-full h-px" />
-          <EnergyFlow direction="vertical" intensity="medium" color="purple" className="right-1/3 top-0 w-px h-full" />
-        </div>
-      )}
+      <BackgroundEffects particleEffectsEnabled={particleEffectsEnabled} effectSpeed={effectSpeed} />
 
       {/* Enhanced Central Command Nexus - Only show when expanded */}
       {nexusExpanded && (
@@ -375,309 +309,26 @@ function DashboardContent() {
       )}
 
       <div className="relative z-10 p-6">
-        {/* Enhanced Two-Row Spaceship Bridge Header */}
-        <header className="mb-6">
-          <div className="backdrop-blur-md bg-slate-900/70 border border-slate-700/50 rounded-xl shadow-2xl p-4 relative overflow-hidden">
-            <EnergyFlow direction="horizontal" intensity="low" color="cyan" />
-
-            {/* First Row - Title and System Status */}
-            <div className="flex items-center justify-between relative z-10 mb-4">
-              <div className="flex items-center space-x-6">
-                <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-                    COGNITIVE MESH
-                  </h1>
-                  <p className="text-slate-400 mt-1 text-base">Enterprise AI Transformation Framework</p>
-                  <div className="flex items-center space-x-4 mt-1">
-                    <div className="flex items-center space-x-2 text-green-400">
-                      <div className={`w-2 h-2 bg-green-400 rounded-full ${particleEffectsEnabled ? 'animate-pulse' : ''}`} />
-                      <span className="text-xs">Neural Network Online</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-cyan-400">
-                      <div className={`w-2 h-2 bg-cyan-400 rounded-full ${particleEffectsEnabled ? 'animate-pulse' : ''}`} />
-                      <span className="text-xs">Quantum Processing Active</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* System Status Indicators */}
-                <div className="hidden lg:flex items-center space-x-4">
-                  <div className="flex items-center space-x-2 bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2">
-                    <Zap size={14} className="text-yellow-400" />
-                    <span className="text-xs text-slate-300">Power: 98%</span>
-                  </div>
-                  <div className="flex items-center space-x-2 bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2">
-                    <Activity size={14} className="text-green-400" />
-                    <span className="text-xs text-slate-300">Load: 67%</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-right">
-                <div className="text-xl font-bold text-white flex items-center space-x-2">
-                  <Server size={20} className="text-cyan-400" />
-                  <span>BRIDGE</span>
-                </div>
-                <div className="text-xs text-slate-400">Command Center</div>
-              </div>
-            </div>
-
-            {/* Second Row - Bridge Controls */}
-            <div className="flex items-center justify-between relative z-10">
-              <div className="flex items-center space-x-4">
-                {/* Precision Control Sliders */}
-                <div className="flex items-center space-x-4">
-                  {/* Effect Speed Control */}
-                  <div className="flex items-center bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2 space-x-3">
-                    <div className="flex items-center space-x-2">
-                      <Gauge size={14} className="text-purple-400" />
-                      <span className="text-xs text-slate-300 font-medium">FX</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="range"
-                        min="0.1"
-                        max="3.0"
-                        step="0.1"
-                        value={effectSpeed}
-                        onChange={(e) => setEffectSpeed(Number.parseFloat(e.target.value))}
-                        className="w-16 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer slider-purple"
-                        title={`Effect Speed: ${effectSpeed.toFixed(1)}x`}
-                      />
-                      <span className="text-xs text-purple-400 font-mono w-8 text-center">
-                        {effectSpeed.toFixed(1)}x
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Sound Volume Control */}
-                  <div className="flex items-center bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2 space-x-3">
-                    <div className="flex items-center space-x-2">
-                      <Volume2 size={14} className="text-cyan-400" />
-                      <span className="text-xs text-slate-300 font-medium">VOL</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={soundVolume}
-                        onChange={(e) => setSoundVolume(Number.parseFloat(e.target.value))}
-                        className="w-16 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer slider-cyan"
-                        title={`Volume: ${Math.round(soundVolume * 100)}%`}
-                      />
-                      <span className="text-xs text-cyan-400 font-mono w-8 text-center">
-                        {Math.round(soundVolume * 100)}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Particle Effects Toggle */}
-                  <div className="flex items-center bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2 space-x-3">
-                    <div className="flex items-center space-x-2">
-                      <Sparkles size={14} className={particleEffectsEnabled ? "text-green-400" : "text-slate-500"} />
-                      <span className="text-xs text-slate-300 font-medium">FX</span>
-                    </div>
-                    <button
-                      onClick={toggleParticleEffects}
-                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900 ${
-                        particleEffectsEnabled ? 'bg-green-500' : 'bg-slate-600'
-                      }`}
-                      role="switch"
-                      aria-checked={particleEffectsEnabled}
-                      aria-label="Toggle particle effects"
-                      title={`Particle effects: ${particleEffectsEnabled ? 'ON' : 'OFF'}`}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                          particleEffectsEnabled ? 'translate-x-4' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                    <span className={`text-xs font-mono w-8 text-center ${
-                      particleEffectsEnabled ? 'text-green-400' : 'text-slate-500'
-                    }`}>
-                      {particleEffectsEnabled ? 'ON' : 'OFF'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Global Size Control */}
-                <div className="flex items-center bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden">
-                  <div className="flex items-center space-x-2 px-3 py-2 bg-slate-700/30">
-                    {getSizeIcon()}
-                    <span className="text-sm text-slate-300 font-medium">{getSizeLabel()}</span>
-                  </div>
-                  <div className="flex">
-                    <button
-                      onClick={cycleSizeDown}
-                      className="px-2 py-2 hover:bg-slate-600/50 transition-all duration-300 text-slate-400 hover:text-cyan-400 border-r border-slate-600/50"
-                      title="Decrease global size"
-                    >
-                      <RotateCcw size={14} />
-                    </button>
-                    <button
-                      onClick={cycleSizeUp}
-                      className="px-2 py-2 hover:bg-slate-600/50 transition-all duration-300 text-slate-400 hover:text-cyan-400"
-                      title="Increase global size"
-                    >
-                      <RotateCcw size={14} className="rotate-180" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-4">
-                {/* Layout Controls */}
-                <div className="flex items-center bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden">
-                  <button
-                    onClick={toggleSnapToGrid}
-                    className={`flex items-center space-x-2 px-3 py-2 transition-all duration-300 ${
-                      snapToGrid
-                        ? "bg-cyan-500/20 text-cyan-400 border-r border-cyan-500/30"
-                        : "hover:bg-slate-600/50 text-slate-400 hover:text-cyan-400 border-r border-slate-600/50"
-                    }`}
-                    title="Toggle Snap to Grid"
-                  >
-                    <Grid3X3 size={14} />
-                    <span className="text-xs font-medium">SNAP</span>
-                  </button>
-
-                  <button
-                    onClick={toggleShowGrid}
-                    className={`flex items-center space-x-2 px-3 py-2 transition-all duration-300 ${
-                      showGrid
-                        ? "bg-purple-500/20 text-purple-400"
-                        : "hover:bg-slate-600/50 text-slate-400 hover:text-purple-400"
-                    }`}
-                    title="Toggle Grid Overlay"
-                  >
-                    <Layers size={14} />
-                    <span className="text-xs font-medium">GRID</span>
-                  </button>
-                </div>
-
-                {/* Nexus Mode Toggle */}
-                <div className="flex items-center bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden">
-                  <button
-                    onClick={handleNexusToggle}
-                    className={`flex items-center space-x-2 px-3 py-2 transition-all duration-300 ${
-                      nexusExpanded
-                        ? "bg-cyan-500/20 text-cyan-400"
-                        : "hover:bg-slate-600/50 text-slate-400 hover:text-cyan-400"
-                    }`}
-                    title={nexusExpanded ? "Switch to Basic Nexus" : "Switch to Enhanced Nexus"}
-                  >
-                    <Brain size={14} />
-                    <span className="text-xs font-medium">{nexusExpanded ? "ENHANCED" : "BASIC"}</span>
-                  </button>
-                </div>
-
-                {/* Voice and Settings */}
-                <div className="flex items-center bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden">
-                  <button
-                    onClick={handleVoiceActivation}
-                    className={`flex items-center space-x-2 px-3 py-2 transition-all duration-300 ${
-                      isVoiceActive
-                        ? "bg-red-500/20 text-red-400 border-r border-red-500/30"
-                        : "hover:bg-slate-600/50 text-slate-400 hover:text-cyan-400 border-r border-slate-600/50"
-                    }`}
-                    title={isVoiceActive ? "Disable voice control" : "Enable voice control"}
-                  >
-                    {isVoiceActive ? <Mic size={14} /> : <MicOff size={14} />}
-                    <span className="text-xs font-medium">VOICE</span>
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setLayoutMode(layoutMode === "radial" ? "grid" : layoutMode === "grid" ? "freeform" : "radial")
-                    }
-                    className="flex items-center space-x-2 px-3 py-2 hover:bg-slate-600/50 transition-all duration-300 text-slate-400 hover:text-cyan-400"
-                    title={`Switch to ${layoutMode === "radial" ? "grid" : layoutMode === "grid" ? "freeform" : "radial"} layout`}
-                  >
-                    <Move size={14} />
-                    <span className="text-xs font-medium">LAYOUT</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Central Command Nexus Dock Zone */}
-        <div className="flex justify-center mb-6">
-          <DockZone
-            id="central-nexus-dock"
-            label="Command Center"
-            maxItems={1}
-            allowedSizes={["large"]}
-            className="w-full max-w-2xl"
-            isResizable={false}
-            minWidth={400}
-            minHeight={120}
-            initialWidth={500}
-            initialHeight={150}
-          />
-        </div>
-
-        {/* Metrics Dashboard */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-          <DockZone
-            id="metrics-dock"
-            label="Metrics Dashboard"
-            maxItems={4}
-            allowedSizes={["small", "medium"]}
-            className="lg:col-span-4"
-            isResizable={true}
-            minWidth={800}
-            minHeight={180}
-            initialWidth={1200}
-            initialHeight={220}
-          />
-        </div>
-
-        {/* Main Content Dock Zones */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-          <DockZone
-            id="main-modules-dock"
-            label="Main Modules"
-            maxItems={6}
-            allowedSizes={["medium", "large"]}
-            className="xl:col-span-2"
-            isResizable={true}
-            minWidth={600}
-            minHeight={400}
-            initialWidth={800}
-            initialHeight={500}
-          />
-
-          <DockZone
-            id="sidebar-dock"
-            label="Sidebar Tools"
-            maxItems={4}
-            allowedSizes={["small", "medium"]}
-            isResizable={true}
-            minWidth={300}
-            minHeight={400}
-            initialWidth={400}
-            initialHeight={500}
-          />
-        </div>
-
-        {/* Bottom Dock Zone */}
-        <DockZone
-          id="bottom-dock"
-          label="Activity & Monitoring"
-          maxItems={6}
-          allowedSizes={["small", "medium", "large"]}
-          isResizable={true}
-          minWidth={800}
-          minHeight={200}
-          initialWidth={1200}
-          initialHeight={300}
+        <BridgeHeader
+          particleEffectsEnabled={particleEffectsEnabled}
+          snapToGrid={snapToGrid}
+          showGrid={showGrid}
+          layoutMode={layoutMode}
+          dockHandleStyle={dockHandleStyle}
+          nexusExpanded={nexusExpanded}
+          getSizeIcon={getSizeIcon}
+          getSizeLabel={getSizeLabel}
+          cycleSizeDown={cycleSizeDown}
+          cycleSizeUp={cycleSizeUp}
+          setLayoutMode={setLayoutMode}
+          setDockHandleStyle={setDockHandleStyle}
+          toggleSnapToGrid={toggleSnapToGrid}
+          toggleShowGrid={toggleShowGrid}
+          toggleParticleEffects={toggleParticleEffects}
+          handleNexusToggle={handleNexusToggle}
         />
+
+        <DashboardLayout dockHandleStyle={dockHandleStyle} />
       </div>
 
       {/* Draggable Components - Always visible but positioned off-screen initially */}
@@ -721,53 +372,14 @@ function DashboardContent() {
           initialSize="large"
           initialPosition={{ x: 100, y: 400 }}
         >
-          <div className="space-y-4">
-            {layers.map((layer) => {
-              const Icon = layer.icon
-              const isActive = activeLayer === layer.id
-              return (
-                <div
-                  key={layer.id}
-                  onClick={() => setActiveLayer(layer.id)}
-                  className={`p-4 rounded-lg border cursor-pointer transition-all duration-300 relative overflow-hidden ${
-                    isActive
-                      ? "bg-cyan-500/20 border-cyan-500/50 shadow-cyan-500/20"
-                      : "bg-slate-800/30 border-slate-700/50 hover:bg-slate-700/30"
-                  }`}
-                >
-                  {isActive && (
-                    <EnergyFlow direction="horizontal" intensity="high" color="cyan" className="absolute inset-0" />
-                  )}
-
-                  <div className="flex items-center space-x-4 relative z-10">
-                    <div className={`p-3 rounded-lg ${isActive ? "bg-cyan-500/30" : "bg-slate-700/50"}`}>
-                      <Icon size={24} className={isActive ? "text-cyan-400" : "text-slate-400"} />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-white">{layer.name}</h4>
-                      <p className="text-sm text-slate-400">{layer.description}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-white">{layer.uptime}%</div>
-                      <div className="text-xs text-slate-400">Uptime</div>
-                      <div
-                        className={`w-2 h-2 rounded-full mt-1 ${
-                          layer.uptime > 95
-                            ? `bg-green-400 ${particleEffectsEnabled ? 'animate-pulse' : ''}`
-                            : layer.uptime > 90
-                              ? `bg-yellow-400 ${particleEffectsEnabled ? 'animate-pulse' : ''}`
-                              : `bg-red-400 ${particleEffectsEnabled ? 'animate-pulse' : ''}`
-                        }`}
-                        style={{
-                          animationDuration: particleEffectsEnabled ? `${2 / effectSpeed}s` : undefined,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          <DraggableModuleContent
+            type="architecture"
+            layers={layers}
+            activeLayer={activeLayer}
+            particleEffectsEnabled={particleEffectsEnabled}
+            effectSpeed={effectSpeed}
+            onLayerClick={setActiveLayer}
+          />
         </DraggableComponent>
 
         <DraggableComponent
@@ -777,38 +389,11 @@ function DashboardContent() {
           initialSize="medium"
           initialPosition={{ x: 800, y: 400 }}
         >
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Lock size={16} className="text-green-400" />
-                <span className="text-sm">Zero-Trust Protocol</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <CheckCircle size={16} className="text-green-400" />
-                <span className="text-xs text-green-400">ACTIVE</span>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Shield size={16} className="text-green-400" />
-                <span className="text-sm">NIST AI RMF</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <CheckCircle size={16} className="text-green-400" />
-                <span className="text-xs text-green-400">COMPLIANT</span>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Database size={16} className="text-green-400" />
-                <span className="text-sm">Quantum Encryption</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <CheckCircle size={16} className="text-green-400" />
-                <span className="text-xs text-green-400">SECURED</span>
-              </div>
-            </div>
-          </div>
+          <DraggableModuleContent
+            type="security"
+            particleEffectsEnabled={particleEffectsEnabled}
+            effectSpeed={effectSpeed}
+          />
         </DraggableComponent>
 
         <DraggableComponent
@@ -818,71 +403,11 @@ function DashboardContent() {
           initialSize="medium"
           initialPosition={{ x: 800, y: 650 }}
         >
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span>Neural Processing</span>
-                <span>67%</span>
-              </div>
-              <div className="w-full bg-slate-700 rounded-full h-3 relative overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-cyan-500 to-blue-500 h-3 rounded-full transition-all duration-1000"
-                  style={{
-                    width: "67%",
-                    transitionDuration: `${1000 / effectSpeed}ms`,
-                  }}
-                />
-                <div
-                  className={`absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent ${particleEffectsEnabled ? 'animate-pulse' : ''}`}
-                  style={{
-                    animationDuration: particleEffectsEnabled ? `${2 / effectSpeed}s` : undefined,
-                  }}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span>Quantum Memory</span>
-                <span>43%</span>
-              </div>
-              <div className="w-full bg-slate-700 rounded-full h-3 relative overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-1000"
-                  style={{
-                    width: "43%",
-                    transitionDuration: `${1000 / effectSpeed}ms`,
-                  }}
-                />
-                <div
-                  className={`absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent ${particleEffectsEnabled ? 'animate-pulse' : ''}`}
-                  style={{
-                    animationDuration: particleEffectsEnabled ? `${2 / effectSpeed}s` : undefined,
-                  }}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span>Data Streams</span>
-                <span>82%</span>
-              </div>
-              <div className="w-full bg-slate-700 rounded-full h-3 relative overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full transition-all duration-1000"
-                  style={{
-                    width: "82%",
-                    transitionDuration: `${1000 / effectSpeed}ms`,
-                  }}
-                />
-                <div
-                  className={`absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent ${particleEffectsEnabled ? 'animate-pulse' : ''}`}
-                  style={{
-                    animationDuration: particleEffectsEnabled ? `${2 / effectSpeed}s` : undefined,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
+          <DraggableModuleContent
+            type="resources"
+            particleEffectsEnabled={particleEffectsEnabled}
+            effectSpeed={effectSpeed}
+          />
         </DraggableComponent>
 
         <DraggableComponent
@@ -892,38 +417,12 @@ function DashboardContent() {
           initialSize="medium"
           initialPosition={{ x: 100, y: 800 }}
         >
-          <div className="space-y-3">
-            {agents.map((agent, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      agent.status === "active" ? `bg-green-400 ${particleEffectsEnabled ? 'animate-pulse' : ''}` : "bg-slate-500"
-                    }`}
-                    style={{
-                      animationDuration: particleEffectsEnabled ? `${2 / effectSpeed}s` : undefined,
-                    }}
-                  />
-                  <div>
-                    <div className="text-sm font-medium text-white">{agent.name}</div>
-                    <div className="text-xs text-slate-400">{agent.tasks} active tasks</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-slate-400">Energy</div>
-                  <div className="w-16 bg-slate-700 rounded-full h-2 mt-1">
-                    <div
-                      className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-1000"
-                      style={{
-                        width: `${agent.energy * 100}%`,
-                        transitionDuration: `${1000 / effectSpeed}ms`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <DraggableModuleContent
+            type="agents"
+            agents={data.agents}
+            particleEffectsEnabled={particleEffectsEnabled}
+            effectSpeed={effectSpeed}
+          />
         </DraggableComponent>
 
         <DraggableComponent
@@ -933,39 +432,25 @@ function DashboardContent() {
           initialSize="medium"
           initialPosition={{ x: 500, y: 800 }}
         >
-          <div className="space-y-3">
-            {activities.map((activity, index) => (
-              <div
-                key={index}
-                className="flex items-center space-x-3 p-2 hover:bg-slate-800/30 rounded-lg transition-colors"
-              >
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    activity.type === "security"
-                      ? "bg-red-400"
-                      : activity.type === "deployment"
-                        ? "bg-green-400"
-                        : activity.type === "optimization"
-                          ? "bg-blue-400"
-                          : activity.type === "compliance"
-                            ? "bg-yellow-400"
-                            : "bg-purple-400"
-                  }`}
-                />
-                <div className="flex-1">
-                  <div className="text-sm text-white">{activity.event}</div>
-                  <div className="text-xs text-slate-400">{activity.time}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <DraggableModuleContent
+            type="activity"
+            activities={data.activities}
+            particleEffectsEnabled={particleEffectsEnabled}
+            effectSpeed={effectSpeed}
+          />
         </DraggableComponent>
+
+        {/* Design System Demo removed */}
       </div>
 
       {/* Command Nexus - Floating version (only when not docked) */}
       {!nexusExpanded && (() => {
-        const nexusItem = items["command-nexus"]
-        const isNexusDocked = nexusItem?.isDocked
+        const nexusItem = items["command-nexus"];
+        const isNexusDocked = nexusItem?.isDocked;
+        // When user starts dragging, re-enable auto-dock
+        const handleNexusDragStart = () => {
+          setNexusAutoDockEnabled(true);
+        };
         return !isNexusDocked ? (
           <Nexus
             mode="draggable"
@@ -976,76 +461,18 @@ function DashboardContent() {
             isDocked={false}
             soundVolume={soundVolume}
             enableAudio={false}
+            onDragStart={handleNexusDragStart}
           />
-        ) : null
+        ) : null;
       })()}
 
       {/* Voice Activation Feedback */}
-      {isVoiceActive && (
-        <div className="fixed top-1/2 left-8 transform -translate-y-1/2 z-50">
-          <div className="backdrop-blur-md bg-red-500/20 border border-red-500/50 rounded-xl p-4 flex items-center space-x-3">
-            <div
-              className={`w-3 h-3 bg-red-400 rounded-full ${particleEffectsEnabled ? 'animate-pulse' : ''}`}
-              style={{
-                animationDuration: particleEffectsEnabled ? `${1 / effectSpeed}s` : undefined,
-              }}
-            />
-            <span className="text-red-400 font-semibold">VOICE RECOGNITION ACTIVE</span>
-          </div>
-        </div>
-      )}
-
-      {/* Voice Feedback Message */}
-      {voiceFeedback && (
-        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="backdrop-blur-md bg-slate-900/90 border border-cyan-500/50 rounded-lg px-4 py-2">
-            <span className="text-cyan-400 text-sm">{voiceFeedback}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Custom CSS for slider styling */}
-      <style jsx>{`
-        .slider-purple::-webkit-slider-thumb {
-          appearance: none;
-          height: 12px;
-          width: 12px;
-          border-radius: 50%;
-          background: #a855f7;
-          cursor: pointer;
-          box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
-        }
-        
-        .slider-cyan::-webkit-slider-thumb {
-          appearance: none;
-          height: 12px;
-          width: 12px;
-          border-radius: 50%;
-          background: #06b6d4;
-          cursor: pointer;
-          box-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
-        }
-        
-        .slider-purple::-moz-range-thumb {
-          height: 12px;
-          width: 12px;
-          border-radius: 50%;
-          background: #a855f7;
-          cursor: pointer;
-          border: none;
-          box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
-        }
-        
-        .slider-cyan::-moz-range-thumb {
-          height: 12px;
-          width: 12px;
-          border-radius: 50%;
-          background: #06b6d4;
-          cursor: pointer;
-          border: none;
-          box-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
-        }
-      `}</style>
+      <VoiceFeedback
+        isVoiceActive={isVoiceActive}
+        voiceFeedback={voiceFeedback}
+        particleEffectsEnabled={particleEffectsEnabled}
+        effectSpeed={effectSpeed}
+      />
     </div>
   )
 }

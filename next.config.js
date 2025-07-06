@@ -9,6 +9,19 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: 'storage-access=*'
+          }
+        ]
+      }
+    ]
+  }
 }
 
 module.exports = nextConfig
