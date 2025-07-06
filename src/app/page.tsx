@@ -64,52 +64,16 @@ function DashboardContent() {
     CheckCircle,
   };
 
-  // Show loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-center">
-        <div className="text-center">
-          <LoadingSpinner size="large" />
-          <p className="mt-4 text-cyan-400">Loading Cognitive Mesh Dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <div className="text-red-400 text-6xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold mb-2">Connection Error</h2>
-          <p className="text-slate-400 mb-4">{error}</p>
-          <button
-            onClick={refetch}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
-          >
-            Retry Connection
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Ensure data is available
-  if (!data) {
-    return null;
-  }
-
-  // Transform API data to include icon components
-  const layers = data.layers.map(layer => ({
+  // Transform API data to include icon components (only when data is available)
+  const layers = data?.layers?.map(layer => ({
     ...layer,
     icon: iconMap[layer.icon] || Shield,
-  }));
+  })) || [];
 
-  const metrics = data.metrics.map(metric => ({
+  const metrics = data?.metrics?.map(metric => ({
     ...metric,
     icon: iconMap[metric.icon] || Activity,
-  }));
+  })) || [];
 
   // Calculate center position for Command Nexus
   useEffect(() => {
@@ -140,8 +104,23 @@ function DashboardContent() {
     return () => window.removeEventListener("resize", handleResize)
   }, [])
 
+  // Apply effect speed to CSS custom properties
+  useEffect(() => {
+    document.documentElement.style.setProperty("--effect-speed-multiplier", effectSpeed.toString())
+    document.documentElement.style.setProperty("--animation-duration-base", `${2 / effectSpeed}s`)
+  }, [effectSpeed])
+
+  // Persist particle effects setting to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cognitive-mesh-particle-effects', JSON.stringify(particleEffectsEnabled))
+    }
+  }, [particleEffectsEnabled])
+
   // Robustly dock all items (including Nexus) when both items and zones are registered
   useEffect(() => {
+    if (!data) return; // Don't run if data is not available
+    
     // Wait until all items and all dock zones are registered before attempting to dock
     const allZones = [
       "central-nexus-dock",
@@ -187,20 +166,43 @@ function DashboardContent() {
     if (items["activity"] && !items["activity"].isDocked) {
       dockItem("activity", "bottom-dock", 1);
     }
-  }, [nexusAutoDockEnabled, items, dockZones, dockItem, metrics, data.agents, data.activities]);
+  }, [nexusAutoDockEnabled, items, dockZones, dockItem, metrics, data?.agents, data?.activities]);
 
-  // Apply effect speed to CSS custom properties
-  useEffect(() => {
-    document.documentElement.style.setProperty("--effect-speed-multiplier", effectSpeed.toString())
-    document.documentElement.style.setProperty("--animation-duration-base", `${2 / effectSpeed}s`)
-  }, [effectSpeed])
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner size="large" />
+          <p className="mt-4 text-cyan-400">Loading Cognitive Mesh Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
-  // Persist particle effects setting to localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('cognitive-mesh-particle-effects', JSON.stringify(particleEffectsEnabled))
-    }
-  }, [particleEffectsEnabled])
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="text-red-400 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold mb-2">Connection Error</h2>
+          <p className="text-slate-400 mb-4">{error}</p>
+          <button
+            onClick={refetch}
+            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Ensure data is available
+  if (!data) {
+    return null;
+  }
 
   const handlePromptSubmit = (prompt: string) => {
     console.log("AI Prompt submitted:", prompt)
