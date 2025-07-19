@@ -19,7 +19,8 @@ import {
   Shield,
   Square,
   TrendingUp,
-  Users
+  Users,
+  LucideIcon
 } from "lucide-react"
 
 import DraggableModuleContent from "@/components/DraggableModuleContent"
@@ -54,7 +55,7 @@ function DashboardContent() {
   const [nexusAutoDockEnabled, setNexusAutoDockEnabled] = useState(true);
 
   // Icon mapping for API data
-  const iconMap: Record<string, React.ComponentType<any>> = {
+  const iconMap: Record<string, LucideIcon> = {
     Shield,
     Brain,
     Eye,
@@ -166,7 +167,7 @@ function DashboardContent() {
     if (items["activity"] && !items["activity"].isDocked) {
       dockItem("activity", "bottom-dock", 1);
     }
-  }, [nexusAutoDockEnabled, items, dockZones, dockItem, metrics, data?.agents, data?.activities]);
+  }, [nexusAutoDockEnabled, items, dockZones, dockItem, metrics, data]);
 
   // Show loading state
   if (loading) {

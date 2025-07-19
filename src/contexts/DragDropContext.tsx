@@ -390,7 +390,7 @@ export const DragDropProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.log(`Successfully docked item ${itemId} to zone ${zoneId}`)
       return true
     },
-    [dockZones, items],
+    [dockZones, items, setItems, setDockZones],
   )
 
   const undockItem = useCallback(
