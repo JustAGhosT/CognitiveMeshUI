@@ -5,7 +5,7 @@ import React from "react";
 interface Layer {
   id: string;
   name: string;
-  icon: React.ComponentType<any>;
+  icon: LucideIcon;
   color: string;
   uptime: number;
   description: string;

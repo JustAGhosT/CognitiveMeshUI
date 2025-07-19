@@ -197,7 +197,7 @@ export const DockZone: React.FC<DockZoneProps> = ({
     })
 
     return () => unregisterDockZone(id)
-  }, [id])
+  }, [id, label, maxItems, allowedSizes, isResizable, minWidth, minHeight, registerDockZone, unregisterDockZone])
 
   // Debounced bounds update function
   const debouncedUpdateBounds = useCallback(() => {
@@ -386,7 +386,7 @@ export const DockZone: React.FC<DockZoneProps> = ({
   const snapToGrid = (value: number) => Math.round(value / GRID_SIZE) * GRID_SIZE;
 
   // On drag end, snap to grid or stack
-  const handleDragEnd = (e: any, info: any) => {
+  const handleDragEnd = () => {
     if (isFloating && zoneRef.current) {
       // Get this zone's rect
       const rect = zoneRef.current.getBoundingClientRect();

@@ -100,7 +100,7 @@ export default function Nexus({
   const nexusRef = useRef<HTMLDivElement>(null)
 
   // Audio system (only for enhanced mode)
-  const { audioState, playSound, setVolume } = useAudioSystem(enableAudio ? soundVolume : 0)
+  const { playSound, setVolume } = useAudioSystem(enableAudio ? soundVolume : 0)
 
   // Drag and drop context
   const {
@@ -129,7 +129,7 @@ export default function Nexus({
   })
 
   // Replace drag state with useNexusDrag
-  const { isDragging: useNexusDragIsDragging, start: handleDragStart, end: handleDragEnd } = useNexusDrag({ onDragStart, onDragEnd })
+  const { start: handleDragStart, end: handleDragEnd } = useNexusDrag({ onDragStart, onDragEnd })
 
   // Nexus identification
   const nexusId = "command-nexus"
@@ -243,6 +243,7 @@ export default function Nexus({
         e.preventDefault()
         if (mode === "enhanced") {
           setNexusState(prev => ({ ...prev, isExpanded: true }))
+          if (onExpand) onExpand()
         } else {
           setNexusState(prev => ({ ...prev, isExpanded: true }))
         }
@@ -253,6 +254,7 @@ export default function Nexus({
         setNexusState(prev => ({ ...prev, isExpanded: false }))
         setPrompt("")
         setSuggestions([])
+        if (onCollapse) onCollapse()
       }
     }
 
@@ -353,31 +355,34 @@ export default function Nexus({
   }
 
   const handleModuleClick = (moduleId: string) => {
-    const module = availableModules.find(m => m.id === moduleId)
-    if (module) {
-      setNexusState(prev => ({ ...prev, activeModule: module }))
+    const moduleToActivate = availableModules.find(m => m.id === moduleId)
+    if (moduleToActivate) {
+      setNexusState(prev => ({ ...prev, activeModule: moduleToActivate }))
       if (enableAudio) playSound("click")
     }
   }
 
   // Enhanced mode drag handlers
-  const handleDragStart = (type: "nexus" | "icon", data?: any) => {
+  const handleDragStart = useCallback((type: "nexus" | "icon", data?: any) => {
     if (mode !== "enhanced") return
-    handleDragStart({
-      isDragging: true,
-      draggedItem: { id: `${type}-${Date.now()}`, type, data },
-      showPreviewGrid: true,
-      activeDropZone: null,
+    startDrag({
+      id: `${type}-${Date.now()}`,
+      type: "nexus", // All modules dragged from Nexus are of type 'nexus'
+      size: "small", // Default size for dragged Nexus modules
+      position: { x: 0, y: 0 }, // Position will be updated by drag-and-drop context
+      isDocked: false,
+      zIndex: 100,
+      data: data, // Pass relevant data for the module
     })
     if (enableAudio) playSound("click")
     if (onDragStart) onDragStart()
-  }
+  }, [mode, startDrag, enableAudio, playSound, onDragStart])
 
-  const handleDragEnd = () => {
+  const handleDragEnd = useCallback(() => {
     if (mode !== "enhanced") return
-    handleDragEnd()
+    endDrag()
     if (enableAudio) playSound("snap")
-  }
+  }, [mode, endDrag, enableAudio, playSound])
 
   // Early return for draggable mode if not registered
   if (mode === "draggable" && !item) return null

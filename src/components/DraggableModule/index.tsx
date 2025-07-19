@@ -32,18 +32,18 @@ export default function DraggableModule({
     startPos.current = { x: e.clientX - position.x, y: e.clientY - position.y }
   }
 
-  const handleMouseMove = (e: MouseEvent) => {
+  const handleMouseMove = React.useCallback((e: MouseEvent) => {
     if (isDragging) {
       setPosition({
         x: e.clientX - startPos.current.x,
         y: e.clientY - startPos.current.y,
       })
     }
-  }
+  }, [isDragging])
 
-  const handleMouseUp = () => {
+  const handleMouseUp = React.useCallback(() => {
     setIsDragging(false)
-  }
+  }, [])
 
   React.useEffect(() => {
     if (isDragging) {
@@ -54,7 +54,7 @@ export default function DraggableModule({
         document.removeEventListener("mouseup", handleMouseUp)
       }
     }
-  }, [isDragging])
+  }, [isDragging, handleMouseMove, handleMouseUp])
 
   const energyColor = energyLevel > 0.7 ? "cyan" : energyLevel > 0.4 ? "blue" : "purple"
   const energyIntensity = Math.floor(energyLevel * 100)
