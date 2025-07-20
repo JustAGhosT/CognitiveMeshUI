@@ -361,7 +361,7 @@ export default function Nexus({
   }
 
   // Enhanced mode drag handlers
-  const handleDragStart = (type: "nexus" | "icon", data?: any) => {
+  const handleEnhancedDragStart = (type: "nexus" | "icon", data?: any) => {
     if (mode !== "enhanced") return
     handleDragStart({
       isDragging: true,
@@ -373,7 +373,7 @@ export default function Nexus({
     if (onDragStart) onDragStart()
   }
 
-  const handleDragEnd = () => {
+  const handleEnhancedDragEnd = () => {
     if (mode !== "enhanced") return
     handleDragEnd()
     if (enableAudio) playSound("snap")
@@ -773,7 +773,7 @@ export default function Nexus({
         <DragPreview
           isVisible={useNexusDragIsDragging}
           draggedItem={useNexusDragIsDragging.draggedItem}
-          onDragEnd={handleDragEnd}
+          onDragEnd={handleEnhancedDragEnd}
           onDropZoneEnter={() => {}}
           onDropZoneLeave={() => {}}
         />

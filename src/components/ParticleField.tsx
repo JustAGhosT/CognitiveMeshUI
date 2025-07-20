@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 
 interface Particle {
   x: number;
@@ -147,14 +147,16 @@ export default function ParticleField() {
     }
 
     animate();
-    window.addEventListener("resize", () => {
+    const handleResize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
       canvas.width = width;
       canvas.height = height;
-    });
+    };
+    window.addEventListener("resize", handleResize);
     return () => {
       cancelAnimationFrame(animationRef.current!);
+      window.removeEventListener("resize", handleResize);
     };
   }, []);
 
@@ -170,8 +172,6 @@ export default function ParticleField() {
         height: "100vh",
         opacity: 0.7,
       }}
-      width={window.innerWidth}
-      height={window.innerHeight}
       aria-hidden="true"
     />
   );

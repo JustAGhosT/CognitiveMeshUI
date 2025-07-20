@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import React from "react"
-import { ThemeProvider } from "../../components/theme-provider"
+import { ThemeProvider } from "../components/theme-provider"
 import ParticleField from "../components/ParticleField"
 import "./globals.css"
 
