@@ -79,7 +79,7 @@ export const AdvancedDraggableModule: React.FC<AdvancedDraggableModuleProps> = (
     }
   }
 
-  const handleMouseMove = (e: MouseEvent) => {
+  const handleMouseMove = React.useCallback((e: MouseEvent) => {
     if (isDragging) {
       const newPosition = {
         x: e.clientX - startPos.current.x,
@@ -102,9 +102,9 @@ export const AdvancedDraggableModule: React.FC<AdvancedDraggableModuleProps> = (
         setActiveDropZone(hoveredZone?.id || null)
       }
     }
-  }
+  }, [isDragging, onPositionChange, id, dropZones])
 
-  const handleMouseUp = () => {
+  const handleMouseUp = React.useCallback(() => {
     if (isDragging) {
       setIsDragging(false)
       setShowDropZones(false)
@@ -115,7 +115,7 @@ export const AdvancedDraggableModule: React.FC<AdvancedDraggableModuleProps> = (
         dragRef.current.setAttribute("aria-grabbed", "false")
       }
     }
-  }
+  }, [isDragging])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.altKey) {
@@ -149,7 +149,7 @@ export const AdvancedDraggableModule: React.FC<AdvancedDraggableModuleProps> = (
         document.removeEventListener("mouseup", handleMouseUp)
       }
     }
-  }, [isDragging])
+  }, [isDragging, handleMouseMove, handleMouseUp])
 
   // Close context menu when clicking outside
   useEffect(() => {
@@ -166,7 +166,6 @@ export const AdvancedDraggableModule: React.FC<AdvancedDraggableModuleProps> = (
   }, [showContextMenu])
 
   const energyColor = energyLevel > 0.7 ? "cyan" : energyLevel > 0.4 ? "blue" : "purple"
-  const energyIntensity = Math.floor(energyLevel * 100)
 
   const getBlurRadius = () => {
     if (isDragging) return "backdrop-blur-lg"
